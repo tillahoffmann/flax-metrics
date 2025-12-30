@@ -4,7 +4,32 @@ import pytest
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import ndcg_score
 
-from flax_metrics import NDCG, RecallAtK
+from flax_metrics import (
+    NDCG,
+    MeanAveragePrecision,
+    MeanReciprocalRank,
+    PrecisionAtK,
+    RecallAtK,
+)
+
+
+def precision_at_k(scores, relevance, k):
+    """Reference implementation of Precision@K."""
+    scores = np.asarray(scores)
+    relevance = np.asarray(relevance)
+
+    if scores.ndim == 1:
+        scores = scores[None, :]
+        relevance = relevance[None, :]
+
+    relevant_in_top_k = 0
+    num_queries = scores.shape[0]
+
+    for i in range(num_queries):
+        top_k_indices = np.argsort(-scores[i])[:k]
+        relevant_in_top_k += relevance[i, top_k_indices].sum()
+
+    return relevant_in_top_k / (num_queries * k)
 
 
 def recall_at_k(scores, relevance, k):
@@ -27,6 +52,63 @@ def recall_at_k(scores, relevance, k):
     return relevant_in_top_k / total_relevant
 
 
+def mrr(scores, relevance, k):
+    """Reference implementation of Mean Reciprocal Rank."""
+    scores = np.asarray(scores)
+    relevance = np.asarray(relevance)
+
+    if scores.ndim == 1:
+        scores = scores[None, :]
+        relevance = relevance[None, :]
+
+    total_rr = 0.0
+    num_queries = scores.shape[0]
+
+    for i in range(num_queries):
+        top_k_indices = np.argsort(-scores[i])[:k]
+        top_k_rel = relevance[i, top_k_indices]
+        # Find first relevant item
+        relevant_positions = np.where(top_k_rel > 0)[0]
+        if len(relevant_positions) > 0:
+            total_rr += 1.0 / (relevant_positions[0] + 1)
+
+    return total_rr / num_queries
+
+
+def mean_average_precision(scores, relevance, k):
+    """Reference implementation of Mean Average Precision."""
+    scores = np.asarray(scores)
+    relevance = np.asarray(relevance)
+
+    if scores.ndim == 1:
+        scores = scores[None, :]
+        relevance = relevance[None, :]
+
+    total_ap = 0.0
+    num_queries = scores.shape[0]
+
+    for i in range(num_queries):
+        top_k_indices = np.argsort(-scores[i])[:k]
+        top_k_rel = relevance[i, top_k_indices]
+
+        # Compute AP (using binary relevance)
+        total_relevant = (relevance[i] > 0).sum()
+        if total_relevant == 0:
+            continue
+
+        cumsum = 0
+        ap_sum = 0.0
+        for pos, rel in enumerate(top_k_rel):
+            if rel > 0:
+                cumsum += 1
+                precision_at_pos = cumsum / (pos + 1)
+                ap_sum += precision_at_pos
+
+        total_ap += ap_sum / total_relevant
+
+    return total_ap / num_queries
+
+
 def sklearn_ndcg(scores, relevance, k):
     """Wrapper for sklearn's ndcg_score."""
     scores = np.asarray(scores)
@@ -40,7 +122,10 @@ def sklearn_ndcg(scores, relevance, k):
 
 
 METRICS = [
+    (PrecisionAtK, precision_at_k),
     (RecallAtK, recall_at_k),
+    (MeanReciprocalRank, mrr),
+    (MeanAveragePrecision, mean_average_precision),
     (NDCG, sklearn_ndcg),
 ]
 
@@ -59,6 +144,9 @@ METRICS = [
         ([0.9, 0.8, 0.7, 0.6], [1, 0, 1, 0], 3),
         # Graded relevance
         ([0.9, 0.8, 0.7, 0.6], [3, 2, 1, 0], 3),
+        # Graded relevance where highest relevance is not first (tests MRR correctly
+        # finds first relevant item, not highest relevance item)
+        ([0.9, 0.8, 0.7, 0.6], [1, 3, 2, 0], 3),
     ],
 )
 def test_metric_matches_sklearn(metric_cls, sklearn_fn, scores, relevance, k):

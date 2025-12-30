@@ -1,7 +1,13 @@
 from flax.nnx import metrics
 
 from .binary import F1Score, Precision, Recall
-from .ranking import NDCG, RecallAtK
+from .ranking import (
+    NDCG,
+    MeanAveragePrecision,
+    MeanReciprocalRank,
+    PrecisionAtK,
+    RecallAtK,
+)
 
 Accuracy = metrics.Accuracy
 Average = metrics.Average
@@ -12,8 +18,11 @@ __all__ = [
     "Accuracy",
     "Average",
     "F1Score",
+    "MeanAveragePrecision",
+    "MeanReciprocalRank",
     "NDCG",
     "Precision",
+    "PrecisionAtK",
     "Recall",
     "RecallAtK",
     "Welford",

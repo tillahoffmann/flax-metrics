@@ -17,7 +17,7 @@ class Recall(nnx.metrics.Average):
         # The denominator is the number of positives.
         self.count.value += labels.sum()
         # The numerator is the number of true positives.
-        self.total.value += (logits > self.threshold) @ labels
+        self.total.value += ((logits > self.threshold) * labels).sum()
 
 
 class Precision(nnx.metrics.Average):
@@ -32,10 +32,11 @@ class Precision(nnx.metrics.Average):
         self.threshold = threshold
 
     def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+        predictions = logits > self.threshold
         # The denominator is the number of identified positives.
-        self.count.value += (logits > self.threshold).sum()
+        self.count.value += predictions.sum()
         # The numerator is the number of those that are actually positives.
-        self.total.value += (logits > self.threshold) @ labels
+        self.total.value += (predictions * labels).sum()
 
 
 class F1Score(nnx.Metric):
@@ -62,7 +63,7 @@ class F1Score(nnx.Metric):
 
     def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
         predictions = logits > self.threshold
-        self.true_positives.value += predictions @ labels
+        self.true_positives.value += (predictions * labels).sum()
         self.actual_positives.value += labels.sum()
         self.predicted_positives.value += predictions.sum()
 

@@ -3,6 +3,46 @@ from jax import lax
 from jax import numpy as jnp
 
 
+class PrecisionAtK(nnx.Metric):
+    """Precision@K, the fraction of top-k items that are relevant.
+
+    Args:
+        k: Number of top items to consider.
+    """
+
+    def __init__(self, k: int) -> None:
+        self.k = k
+        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def reset(self) -> None:
+        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+        """Update the metric with a batch of queries.
+
+        Args:
+            scores: Scores for each item, shape (..., num_items).
+            relevance: Binary relevance labels, same shape as scores.
+        """
+        # Flatten batch dimensions to count queries
+        num_queries = scores.size // scores.shape[-1]
+
+        # Get top-k indices along last axis (descending order)
+        _, top_k_indices = lax.top_k(scores, self.k)
+
+        # Gather relevance values for top-k items
+        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+
+        # Accumulate counts
+        self.relevant_in_top_k.value += top_k_relevance.sum()
+        self.num_queries.value += num_queries
+
+    def compute(self) -> jnp.ndarray:
+        return self.relevant_in_top_k.value / (self.num_queries.value * self.k)
+
+
 class RecallAtK(nnx.Metric):
     """Recall@K, the fraction of relevant items that appear in the top-k ranked results.
 
@@ -38,6 +78,124 @@ class RecallAtK(nnx.Metric):
 
     def compute(self) -> jnp.ndarray:
         return self.relevant_in_top_k.value / self.total_relevant.value
+
+
+class MeanReciprocalRank(nnx.Metric):
+    """Mean Reciprocal Rank.
+
+    The average of reciprocal ranks of the first relevant item for each query.
+
+    Args:
+        k: Number of top items to consider. If None, considers all items.
+    """
+
+    def __init__(self, k: int | None = None) -> None:
+        self.k = k
+        self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def reset(self) -> None:
+        self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+        """Update the metric with a batch of queries.
+
+        Args:
+            scores: Scores for each item, shape (..., num_items).
+            relevance: Binary relevance labels, same shape as scores.
+        """
+        # Flatten batch dimensions
+        original_shape = scores.shape
+        scores = scores.reshape(-1, original_shape[-1])
+        relevance = relevance.reshape(-1, original_shape[-1])
+
+        k = self.k if self.k is not None else scores.shape[-1]
+
+        # Get top-k indices by score
+        _, top_k_indices = lax.top_k(scores, k)
+        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+
+        # Find rank of first relevant item (1-indexed)
+        # Convert to binary and use argmax to find first relevant (not highest)
+        is_relevant = top_k_relevance > 0
+        first_relevant_idx = jnp.argmax(is_relevant, axis=-1)
+        has_relevant = jnp.any(is_relevant, axis=-1)
+
+        # Reciprocal rank: 1/(rank), where rank = index + 1
+        reciprocal_rank = jnp.where(
+            has_relevant,
+            1.0 / (first_relevant_idx + 1),
+            0.0,
+        )
+
+        self.total_rr.value += reciprocal_rank.sum()
+        self.num_queries.value += scores.shape[0]
+
+    def compute(self) -> jnp.ndarray:
+        return self.total_rr.value / self.num_queries.value
+
+
+class MeanAveragePrecision(nnx.Metric):
+    """Mean Average Precision.
+
+    The mean of average precision scores across queries, where average precision
+    is the sum of precision@k * rel(k) divided by total relevant items.
+
+    Args:
+        k: Number of top items to consider. If None, considers all items.
+    """
+
+    def __init__(self, k: int | None = None) -> None:
+        self.k = k
+        self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def reset(self) -> None:
+        self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+        """Update the metric with a batch of queries.
+
+        Args:
+            scores: Scores for each item, shape (..., num_items).
+            relevance: Binary relevance labels, same shape as scores.
+        """
+        # Flatten batch dimensions
+        original_shape = scores.shape
+        scores = scores.reshape(-1, original_shape[-1])
+        relevance = relevance.reshape(-1, original_shape[-1])
+
+        k = self.k if self.k is not None else scores.shape[-1]
+
+        # Get top-k indices by score
+        _, top_k_indices = lax.top_k(scores, k)
+        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+
+        # Convert to binary relevance for MAP
+        top_k_binary = (top_k_relevance > 0).astype(jnp.float32)
+
+        # Compute cumulative sum of relevant items at each position
+        cumsum_rel = jnp.cumsum(top_k_binary, axis=-1)
+
+        # Precision at each position: cumsum_rel / position
+        positions = jnp.arange(1, k + 1)
+        precision_at_k = cumsum_rel / positions
+
+        # AP = sum(precision@k * rel(k)) / total_relevant
+        # Only count positions where item is relevant
+        ap_sum = (precision_at_k * top_k_binary).sum(axis=-1)
+        total_relevant = (relevance > 0).sum(axis=-1)
+
+        # Handle queries with no relevant items
+        ap = jnp.where(total_relevant > 0, ap_sum / total_relevant, 0.0)
+
+        self.total_ap.value += ap.sum()
+        self.num_queries.value += scores.shape[0]
+
+    def compute(self) -> jnp.ndarray:
+        return self.total_ap.value / self.num_queries.value
 
 
 class NDCG(nnx.Metric):
