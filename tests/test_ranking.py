@@ -144,6 +144,9 @@ METRICS = [
         ([0.9, 0.8, 0.7, 0.6], [1, 0, 1, 0], 3),
         # Graded relevance
         ([0.9, 0.8, 0.7, 0.6], [3, 2, 1, 0], 3),
+        # Graded relevance where highest relevance is not first (tests MRR correctly
+        # finds first relevant item, not highest relevance item)
+        ([0.9, 0.8, 0.7, 0.6], [1, 3, 2, 0], 3),
     ],
 )
 def test_metric_matches_sklearn(metric_cls, sklearn_fn, scores, relevance, k):

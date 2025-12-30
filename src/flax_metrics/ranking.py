@@ -117,14 +117,14 @@ class MeanReciprocalRank(nnx.Metric):
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
         # Find rank of first relevant item (1-indexed)
-        # Use argmax on relevance; if no relevant item, argmax returns 0
-        first_relevant_idx = jnp.argmax(top_k_relevance, axis=-1)
-        has_relevant = top_k_relevance.sum(axis=-1) > 0
+        # Convert to binary and use argmax to find first relevant (not highest)
+        is_relevant = top_k_relevance > 0
+        first_relevant_idx = jnp.argmax(is_relevant, axis=-1)
+        has_relevant = jnp.any(is_relevant, axis=-1)
 
         # Reciprocal rank: 1/(rank), where rank = index + 1
         reciprocal_rank = jnp.where(
-            has_relevant
-            & (top_k_relevance[jnp.arange(scores.shape[0]), first_relevant_idx] > 0),
+            has_relevant,
             1.0 / (first_relevant_idx + 1),
             0.0,
         )

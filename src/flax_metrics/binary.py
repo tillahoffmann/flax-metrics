@@ -32,10 +32,11 @@ class Precision(nnx.metrics.Average):
         self.threshold = threshold
 
     def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+        predictions = logits > self.threshold
         # The denominator is the number of identified positives.
-        self.count.value += (logits > self.threshold).sum()
+        self.count.value += predictions.sum()
         # The numerator is the number of those that are actually positives.
-        self.total.value += ((logits > self.threshold) * labels).sum()
+        self.total.value += (predictions * labels).sum()
 
 
 class F1Score(nnx.Metric):
