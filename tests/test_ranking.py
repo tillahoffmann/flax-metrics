@@ -4,7 +4,7 @@ import pytest
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import ndcg_score
 
-from flax_metrics import MRR, NDCG, PrecisionAtK, RecallAtK
+from flax_metrics import MRR, NDCG, MeanAveragePrecision, PrecisionAtK, RecallAtK
 
 
 def precision_at_k(scores, relevance, k):
@@ -69,6 +69,40 @@ def mrr(scores, relevance, k):
     return total_rr / num_queries
 
 
+def mean_average_precision(scores, relevance, k):
+    """Reference implementation of Mean Average Precision."""
+    scores = np.asarray(scores)
+    relevance = np.asarray(relevance)
+
+    if scores.ndim == 1:
+        scores = scores[None, :]
+        relevance = relevance[None, :]
+
+    total_ap = 0.0
+    num_queries = scores.shape[0]
+
+    for i in range(num_queries):
+        top_k_indices = np.argsort(-scores[i])[:k]
+        top_k_rel = relevance[i, top_k_indices]
+
+        # Compute AP (using binary relevance)
+        total_relevant = (relevance[i] > 0).sum()
+        if total_relevant == 0:
+            continue
+
+        cumsum = 0
+        ap_sum = 0.0
+        for pos, rel in enumerate(top_k_rel):
+            if rel > 0:
+                cumsum += 1
+                precision_at_pos = cumsum / (pos + 1)
+                ap_sum += precision_at_pos
+
+        total_ap += ap_sum / total_relevant
+
+    return total_ap / num_queries
+
+
 def sklearn_ndcg(scores, relevance, k):
     """Wrapper for sklearn's ndcg_score."""
     scores = np.asarray(scores)
@@ -85,6 +119,7 @@ METRICS = [
     (PrecisionAtK, precision_at_k),
     (RecallAtK, recall_at_k),
     (MRR, mrr),
+    (MeanAveragePrecision, mean_average_precision),
     (NDCG, sklearn_ndcg),
 ]
 
