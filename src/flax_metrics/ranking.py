@@ -13,6 +13,18 @@ class PrecisionAtK(nnx.Metric):
 
     Args:
         k: Number of top items to consider.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import PrecisionAtK
+        >>>
+        >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
+        >>> relevance = jnp.array([  0,   1,   1,   0])
+        >>> metric = PrecisionAtK(k=2)
+        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.compute()  # top-2 are indices 1, 2 both relevant
+        Array(1., dtype=float32)
     """
 
     def __init__(self, k: int) -> None:
@@ -55,6 +67,18 @@ class RecallAtK(nnx.Metric):
 
     Args:
         k: Number of top items to consider.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import RecallAtK
+        >>>
+        >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
+        >>> relevance = jnp.array([  1,   1,   1,   0])
+        >>> metric = RecallAtK(k=2)
+        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.compute()  # 2 of 3 relevant items in top-2
+        Array(0.6666667, dtype=float32)
     """
 
     def __init__(self, k: int) -> None:
@@ -96,6 +120,18 @@ class MeanReciprocalRank(nnx.Metric):
 
     Args:
         k: Number of top items to consider. If None, considers all items.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import MeanReciprocalRank
+        >>>
+        >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
+        >>> relevance = jnp.array([  1,   0,   0,   1])
+        >>> metric = MeanReciprocalRank()
+        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.compute()  # first relevant at rank 3
+        Array(0.33333334, dtype=float32)
     """
 
     def __init__(self, k: int | None = None) -> None:
@@ -154,6 +190,18 @@ class MeanAveragePrecision(nnx.Metric):
 
     Args:
         k: Number of top items to consider. If None, considers all items.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import MeanAveragePrecision
+        >>>
+        >>> scores    = jnp.array([0.4, 0.3, 0.2, 0.1])
+        >>> relevance = jnp.array([  1,   1,   0,   1])
+        >>> metric = MeanAveragePrecision()
+        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.compute()  # (1/1 + 2/2 + 3/4) / 3
+        Array(0.9166667, dtype=float32)
     """
 
     def __init__(self, k: int | None = None) -> None:
@@ -215,6 +263,18 @@ class NDCG(nnx.Metric):
 
     Args:
         k: Number of top items to consider. If None, considers all items.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import NDCG
+        >>>
+        >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
+        >>> relevance = jnp.array([  3,   2,   1,   0])
+        >>> metric = NDCG(k=3)
+        >>> metric.update(scores=scores, relevance=relevance)
+        >>> float(metric.compute())  # DCG / IDCG
+        0.5525...
     """
 
     def __init__(self, k: int | None = None) -> None:
