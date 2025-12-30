@@ -1,3 +1,8 @@
+"""Metrics for evaluating binary classifiers, including recall, precision, and F1-score.
+These metrics operate on logits and binary labels, applying a threshold to convert
+logits to predictions.
+"""
+
 from flax import nnx
 from jax import numpy as jnp
 

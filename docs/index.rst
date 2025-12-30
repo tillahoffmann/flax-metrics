@@ -6,6 +6,9 @@ Flax NNX implementation of common metrics.
 Binary Classification Metrics
 -----------------------------
 
+Metrics for evaluating binary classifiers, operating on logits and binary
+labels.
+
 .. autosummary::
    :nosignatures:
 
@@ -16,6 +19,8 @@ Binary Classification Metrics
 Ranking Metrics
 ---------------
 
+Metrics for evaluating ranked retrieval results using precomputed scores.
+
 .. autosummary::
    :nosignatures:
 
@@ -24,11 +29,22 @@ Ranking Metrics
    ~flax_metrics.ranking.MeanReciprocalRank
    ~flax_metrics.ranking.MeanAveragePrecision
    ~flax_metrics.ranking.NDCG
-   ~flax_metrics.ranking.DotProductPrecisionAtK
-   ~flax_metrics.ranking.DotProductRecallAtK
-   ~flax_metrics.ranking.DotProductMeanReciprocalRank
-   ~flax_metrics.ranking.DotProductMeanAveragePrecision
-   ~flax_metrics.ranking.DotProductNDCG
+
+Dot Product Ranking Metrics
+---------------------------
+
+Ranking metrics where scores are computed as dot products between query and key
+embeddings. Useful for dense retrieval and embedding-based recommendation
+systems.
+
+.. autosummary::
+   :nosignatures:
+
+   ~flax_metrics.dot_product_ranking.DotProductPrecisionAtK
+   ~flax_metrics.dot_product_ranking.DotProductRecallAtK
+   ~flax_metrics.dot_product_ranking.DotProductMeanReciprocalRank
+   ~flax_metrics.dot_product_ranking.DotProductMeanAveragePrecision
+   ~flax_metrics.dot_product_ranking.DotProductNDCG
 
 .. toctree::
    :maxdepth: 2
@@ -37,3 +53,4 @@ Ranking Metrics
 
    binary
    ranking
+   dot_product_ranking

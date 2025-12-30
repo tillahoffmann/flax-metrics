@@ -1,13 +1,15 @@
 from flax.nnx import metrics
 
 from .binary import F1Score, Precision, Recall
-from .ranking import (
-    NDCG,
+from .dot_product_ranking import (
     DotProductMeanAveragePrecision,
     DotProductMeanReciprocalRank,
     DotProductNDCG,
     DotProductPrecisionAtK,
     DotProductRecallAtK,
+)
+from .ranking import (
+    NDCG,
     MeanAveragePrecision,
     MeanReciprocalRank,
     PrecisionAtK,
