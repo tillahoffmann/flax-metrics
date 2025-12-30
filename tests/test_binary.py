@@ -1,13 +1,14 @@
 import jax.numpy as jnp
 import pytest
 from numpy.testing import assert_almost_equal
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
-from flax_metrics import Precision, Recall
+from flax_metrics import F1Score, Precision, Recall
 
 METRICS = [
     (Recall, recall_score),
     (Precision, precision_score),
+    (F1Score, f1_score),
 ]
 
 

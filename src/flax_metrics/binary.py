@@ -36,3 +36,40 @@ class Precision(nnx.metrics.Average):
         self.count.value += (logits > self.threshold).sum()
         # The numerator is the number of those that are actually positives.
         self.total.value += (logits > self.threshold) @ labels
+
+
+class F1Score(nnx.Metric):
+    """F1 score, the harmonic mean of precision and recall.
+
+    Args:
+        threshold: Threshold for identifying items as positives.
+    """
+
+    def __init__(self, threshold: float = 0.0) -> None:
+        self.threshold = threshold
+        self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.predicted_positives = nnx.metrics.MetricState(
+            jnp.array(0, dtype=jnp.int32)
+        )
+
+    def reset(self) -> None:
+        self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.predicted_positives = nnx.metrics.MetricState(
+            jnp.array(0, dtype=jnp.int32)
+        )
+
+    def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+        predictions = logits > self.threshold
+        self.true_positives.value += predictions @ labels
+        self.actual_positives.value += labels.sum()
+        self.predicted_positives.value += predictions.sum()
+
+    def compute(self) -> jnp.ndarray:
+        # F1 = 2 * TP / (2 * TP + FP + FN) = 2 * TP / (predicted + actual)
+        return (
+            2
+            * self.true_positives.value
+            / (self.predicted_positives.value + self.actual_positives.value)
+        )
