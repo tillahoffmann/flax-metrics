@@ -80,6 +80,62 @@ class RecallAtK(nnx.Metric):
         return self.relevant_in_top_k.value / self.total_relevant.value
 
 
+class MRR(nnx.Metric):
+    """Mean Reciprocal Rank.
+
+    The average of reciprocal ranks of the first relevant item for each query.
+
+    Args:
+        k: Number of top items to consider. If None, considers all items.
+    """
+
+    def __init__(self, k: int | None = None) -> None:
+        self.k = k
+        self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def reset(self) -> None:
+        self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+
+    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+        """Update the metric with a batch of queries.
+
+        Args:
+            scores: Scores for each item, shape (..., num_items).
+            relevance: Binary relevance labels, same shape as scores.
+        """
+        # Flatten batch dimensions
+        original_shape = scores.shape
+        scores = scores.reshape(-1, original_shape[-1])
+        relevance = relevance.reshape(-1, original_shape[-1])
+
+        k = self.k if self.k is not None else scores.shape[-1]
+
+        # Get top-k indices by score
+        _, top_k_indices = lax.top_k(scores, k)
+        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+
+        # Find rank of first relevant item (1-indexed)
+        # Use argmax on relevance; if no relevant item, argmax returns 0
+        first_relevant_idx = jnp.argmax(top_k_relevance, axis=-1)
+        has_relevant = top_k_relevance.sum(axis=-1) > 0
+
+        # Reciprocal rank: 1/(rank), where rank = index + 1
+        reciprocal_rank = jnp.where(
+            has_relevant
+            & (top_k_relevance[jnp.arange(scores.shape[0]), first_relevant_idx] > 0),
+            1.0 / (first_relevant_idx + 1),
+            0.0,
+        )
+
+        self.total_rr.value += reciprocal_rank.sum()
+        self.num_queries.value += scores.shape[0]
+
+    def compute(self) -> jnp.ndarray:
+        return self.total_rr.value / self.num_queries.value
+
+
 class NDCG(nnx.Metric):
     """Normalized Discounted Cumulative Gain.
 

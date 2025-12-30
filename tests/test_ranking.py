@@ -4,7 +4,7 @@ import pytest
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import ndcg_score
 
-from flax_metrics import NDCG, PrecisionAtK, RecallAtK
+from flax_metrics import MRR, NDCG, PrecisionAtK, RecallAtK
 
 
 def precision_at_k(scores, relevance, k):
@@ -46,6 +46,29 @@ def recall_at_k(scores, relevance, k):
     return relevant_in_top_k / total_relevant
 
 
+def mrr(scores, relevance, k):
+    """Reference implementation of Mean Reciprocal Rank."""
+    scores = np.asarray(scores)
+    relevance = np.asarray(relevance)
+
+    if scores.ndim == 1:
+        scores = scores[None, :]
+        relevance = relevance[None, :]
+
+    total_rr = 0.0
+    num_queries = scores.shape[0]
+
+    for i in range(num_queries):
+        top_k_indices = np.argsort(-scores[i])[:k]
+        top_k_rel = relevance[i, top_k_indices]
+        # Find first relevant item
+        relevant_positions = np.where(top_k_rel > 0)[0]
+        if len(relevant_positions) > 0:
+            total_rr += 1.0 / (relevant_positions[0] + 1)
+
+    return total_rr / num_queries
+
+
 def sklearn_ndcg(scores, relevance, k):
     """Wrapper for sklearn's ndcg_score."""
     scores = np.asarray(scores)
@@ -61,6 +84,7 @@ def sklearn_ndcg(scores, relevance, k):
 METRICS = [
     (PrecisionAtK, precision_at_k),
     (RecallAtK, recall_at_k),
+    (MRR, mrr),
     (NDCG, sklearn_ndcg),
 ]
 
