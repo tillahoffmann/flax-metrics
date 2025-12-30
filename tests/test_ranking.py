@@ -4,7 +4,26 @@ import pytest
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import ndcg_score
 
-from flax_metrics import NDCG, RecallAtK
+from flax_metrics import NDCG, PrecisionAtK, RecallAtK
+
+
+def precision_at_k(scores, relevance, k):
+    """Reference implementation of Precision@K."""
+    scores = np.asarray(scores)
+    relevance = np.asarray(relevance)
+
+    if scores.ndim == 1:
+        scores = scores[None, :]
+        relevance = relevance[None, :]
+
+    relevant_in_top_k = 0
+    num_queries = scores.shape[0]
+
+    for i in range(num_queries):
+        top_k_indices = np.argsort(-scores[i])[:k]
+        relevant_in_top_k += relevance[i, top_k_indices].sum()
+
+    return relevant_in_top_k / (num_queries * k)
 
 
 def recall_at_k(scores, relevance, k):
@@ -40,6 +59,7 @@ def sklearn_ndcg(scores, relevance, k):
 
 
 METRICS = [
+    (PrecisionAtK, precision_at_k),
     (RecallAtK, recall_at_k),
     (NDCG, sklearn_ndcg),
 ]
