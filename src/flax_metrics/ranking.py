@@ -80,7 +80,7 @@ class RecallAtK(nnx.Metric):
         return self.relevant_in_top_k.value / self.total_relevant.value
 
 
-class MRR(nnx.Metric):
+class MeanReciprocalRank(nnx.Metric):
     """Mean Reciprocal Rank.
 
     The average of reciprocal ranks of the first relevant item for each query.

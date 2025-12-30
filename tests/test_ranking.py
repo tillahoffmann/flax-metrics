@@ -4,7 +4,13 @@ import pytest
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import ndcg_score
 
-from flax_metrics import MRR, NDCG, MeanAveragePrecision, PrecisionAtK, RecallAtK
+from flax_metrics import (
+    NDCG,
+    MeanAveragePrecision,
+    MeanReciprocalRank,
+    PrecisionAtK,
+    RecallAtK,
+)
 
 
 def precision_at_k(scores, relevance, k):
@@ -118,7 +124,7 @@ def sklearn_ndcg(scores, relevance, k):
 METRICS = [
     (PrecisionAtK, precision_at_k),
     (RecallAtK, recall_at_k),
-    (MRR, mrr),
+    (MeanReciprocalRank, mrr),
     (MeanAveragePrecision, mean_average_precision),
     (NDCG, sklearn_ndcg),
 ]
