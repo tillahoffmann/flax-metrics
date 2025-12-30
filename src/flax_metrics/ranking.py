@@ -16,14 +16,15 @@ class PrecisionAtK(nnx.Metric):
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
-        """Update the metric with a batch of queries.
+        """Update the precision@k with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape (..., num_items).
+            scores: Scores for each item, shape :code:`(..., num_items)`.
             relevance: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions to count queries
@@ -40,6 +41,7 @@ class PrecisionAtK(nnx.Metric):
         self.num_queries.value += num_queries
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the precision@k."""
         return self.relevant_in_top_k.value / (self.num_queries.value * self.k)
 
 
@@ -56,14 +58,15 @@ class RecallAtK(nnx.Metric):
         self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
-        """Update the metric with a batch of queries.
+        """Update the recall@k with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape (..., num_items).
+            scores: Scores for each item, shape :code:`(..., num_items)`.
             relevance: Relevance labels, same shape as scores.
         """
         # Get top-k indices along last axis (descending order)
@@ -77,6 +80,7 @@ class RecallAtK(nnx.Metric):
         self.total_relevant.value += relevance.sum()
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the recall@k."""
         return self.relevant_in_top_k.value / self.total_relevant.value
 
 
@@ -95,14 +99,15 @@ class MeanReciprocalRank(nnx.Metric):
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
-        """Update the metric with a batch of queries.
+        """Update the mean reciprocal rank with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape (..., num_items).
+            scores: Scores for each item, shape :code:`(..., num_items)`.
             relevance: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions
@@ -132,6 +137,7 @@ class MeanReciprocalRank(nnx.Metric):
         self.num_queries.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the mean reciprocal rank."""
         return self.total_rr.value / self.num_queries.value
 
 
@@ -151,14 +157,15 @@ class MeanAveragePrecision(nnx.Metric):
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
-        """Update the metric with a batch of queries.
+        """Update the mean average precision with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape (..., num_items).
+            scores: Scores for each item, shape :code:`(..., num_items)`.
             relevance: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions
@@ -194,6 +201,7 @@ class MeanAveragePrecision(nnx.Metric):
         self.num_queries.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the mean average precision."""
         return self.total_ap.value / self.num_queries.value
 
 
@@ -210,14 +218,15 @@ class NDCG(nnx.Metric):
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
-        """Update the metric with a batch of queries.
+        """Update the NDCG with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape (..., num_items).
+            scores: Scores for each item, shape :code:`(..., num_items)`.
             relevance: Relevance labels (can be graded), same shape as scores.
         """
         # Flatten all batch dimensions
@@ -248,6 +257,7 @@ class NDCG(nnx.Metric):
         self.count.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the NDCG."""
         return self.total_ndcg.value / self.count.value
 
 
@@ -257,26 +267,27 @@ def _compute_dot_product_scores(
     """Compute dot product scores for indexed keys.
 
     Args:
-        query: Query embeddings, shape (*batch_shape, num_features).
-        keys: Key embeddings for all candidates, shape (num_candidates, num_features).
-        indices: Indices into keys for each query, shape (*batch_shape, num_sampled).
+        query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
+        keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
+        indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
 
     Returns:
-        Scores with shape (*batch_shape, num_sampled).
+        Scores with shape :code:`(*batch_shape, num_sampled)`.
     """
     subset_keys = keys[indices]  # (*batch_shape, num_sampled, num_features)
     return jnp.einsum("...f,...nf->...n", query, subset_keys)
 
 
 class DotProductPrecisionAtK(nnx.Metric):
-    """Precision@K computed from query/key embeddings via dot product.
+    """Precision@K using dot product scores between query and key embeddings.
 
-    The ranked score is computed as :code:`query @ keys[indices].T`, where :code:`query`
-    are embeddings with shape :code:`(..., num_features)` and :code:`keys` are
-    embeddings with shape :code:`(num_candidates, num_features)`. When the number of
-    candidates is large, we only consider a subset of them, indicated by :code:`indices`
-    with shape :code:`(..., num_sampled)`. :code:`...` indicates batch dimensions that
-    are broadcastable.
+    .. note::
+        The ranked score is computed as :code:`query @ keys[indices].T`, where
+        :code:`query` are embeddings with shape :code:`(..., num_features)` and
+        :code:`keys` are embeddings with shape :code:`(num_candidates, num_features)`.
+        When the number of candidates is large, we only consider a subset of them,
+        indicated by :code:`indices` with shape :code:`(..., num_sampled)`. :code:`...`
+        indicates batch dimensions that are broadcastable.
 
     Args:
         k: Number of top items to consider.
@@ -290,6 +301,7 @@ class DotProductPrecisionAtK(nnx.Metric):
         )
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.total_items_considered = nnx.metrics.MetricState(
             jnp.array(0, dtype=jnp.int32)
@@ -304,13 +316,13 @@ class DotProductPrecisionAtK(nnx.Metric):
         relevance: jnp.ndarray,
         **_,
     ) -> None:
-        """Update the metric with a batch of queries.
+        """Update the precision@k with a batch of query/key embeddings.
 
         Args:
-            query: Query embeddings, shape (*batch_shape, num_features).
-            keys: Key embeddings for all candidates, shape (num_candidates, num_features).
-            indices: Indices into keys for each query, shape (*batch_shape, num_sampled).
-            relevance: Relevance labels for indexed items, shape (*batch_shape, num_sampled).
+            query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
+            keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
+            indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -327,18 +339,20 @@ class DotProductPrecisionAtK(nnx.Metric):
         self.total_items_considered.value += num_queries * effective_k
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the precision@k."""
         return self.relevant_in_top_k.value / self.total_items_considered.value
 
 
 class DotProductRecallAtK(nnx.Metric):
-    """Recall@K computed from query/key embeddings via dot product.
+    """Recall@K using dot product scores between query and key embeddings.
 
-    The ranked score is computed as :code:`query @ keys[indices].T`, where :code:`query`
-    are embeddings with shape :code:`(..., num_features)` and :code:`keys` are
-    embeddings with shape :code:`(num_candidates, num_features)`. When the number of
-    candidates is large, we only consider a subset of them, indicated by :code:`indices`
-    with shape :code:`(..., num_sampled)`. :code:`...` indicates batch dimensions that
-    are broadcastable.
+    .. note::
+        The ranked score is computed as :code:`query @ keys[indices].T`, where
+        :code:`query` are embeddings with shape :code:`(..., num_features)` and
+        :code:`keys` are embeddings with shape :code:`(num_candidates, num_features)`.
+        When the number of candidates is large, we only consider a subset of them,
+        indicated by :code:`indices` with shape :code:`(..., num_sampled)`. :code:`...`
+        indicates batch dimensions that are broadcastable.
 
     Args:
         k: Number of top items to consider.
@@ -350,6 +364,7 @@ class DotProductRecallAtK(nnx.Metric):
         self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
@@ -362,13 +377,13 @@ class DotProductRecallAtK(nnx.Metric):
         relevance: jnp.ndarray,
         **_,
     ) -> None:
-        """Update the metric with a batch of queries.
+        """Update the recall@k with a batch of query/key embeddings.
 
         Args:
-            query: Query embeddings, shape (*batch_shape, num_features).
-            keys: Key embeddings for all candidates, shape (num_candidates, num_features).
-            indices: Indices into keys for each query, shape (*batch_shape, num_sampled).
-            relevance: Relevance labels for indexed items, shape (*batch_shape, num_sampled).
+            query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
+            keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
+            indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -381,18 +396,20 @@ class DotProductRecallAtK(nnx.Metric):
         self.total_relevant.value += relevance.sum()
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the recall@k."""
         return self.relevant_in_top_k.value / self.total_relevant.value
 
 
 class DotProductMeanReciprocalRank(nnx.Metric):
-    """Mean Reciprocal Rank computed from query/key embeddings via dot product.
+    """Mean Reciprocal Rank using dot product scores between query and key embeddings.
 
-    The ranked score is computed as :code:`query @ keys[indices].T`, where :code:`query`
-    are embeddings with shape :code:`(..., num_features)` and :code:`keys` are
-    embeddings with shape :code:`(num_candidates, num_features)`. When the number of
-    candidates is large, we only consider a subset of them, indicated by :code:`indices`
-    with shape :code:`(..., num_sampled)`. :code:`...` indicates batch dimensions that
-    are broadcastable.
+    .. note::
+        The ranked score is computed as :code:`query @ keys[indices].T`, where
+        :code:`query` are embeddings with shape :code:`(..., num_features)` and
+        :code:`keys` are embeddings with shape :code:`(num_candidates, num_features)`.
+        When the number of candidates is large, we only consider a subset of them,
+        indicated by :code:`indices` with shape :code:`(..., num_sampled)`. :code:`...`
+        indicates batch dimensions that are broadcastable.
 
     Args:
         k: Number of top items to consider. If None, considers all sampled items.
@@ -404,6 +421,7 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
@@ -416,13 +434,13 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         relevance: jnp.ndarray,
         **_,
     ) -> None:
-        """Update the metric with a batch of queries.
+        """Update the mean reciprocal rank with a batch of query/key embeddings.
 
         Args:
-            query: Query embeddings, shape (*batch_shape, num_features).
-            keys: Key embeddings for all candidates, shape (num_candidates, num_features).
-            indices: Indices into keys for each query, shape (*batch_shape, num_sampled).
-            relevance: Relevance labels for indexed items, shape (*batch_shape, num_sampled).
+            query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
+            keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
+            indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -451,18 +469,20 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         self.num_queries.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the mean reciprocal rank."""
         return self.total_rr.value / self.num_queries.value
 
 
 class DotProductMeanAveragePrecision(nnx.Metric):
-    """Mean Average Precision computed from query/key embeddings via dot product.
+    """Mean Average Precision using dot product scores between query and key embeddings.
 
-    The ranked score is computed as :code:`query @ keys[indices].T`, where :code:`query`
-    are embeddings with shape :code:`(..., num_features)` and :code:`keys` are
-    embeddings with shape :code:`(num_candidates, num_features)`. When the number of
-    candidates is large, we only consider a subset of them, indicated by :code:`indices`
-    with shape :code:`(..., num_sampled)`. :code:`...` indicates batch dimensions that
-    are broadcastable.
+    .. note::
+        The ranked score is computed as :code:`query @ keys[indices].T`, where
+        :code:`query` are embeddings with shape :code:`(..., num_features)` and
+        :code:`keys` are embeddings with shape :code:`(num_candidates, num_features)`.
+        When the number of candidates is large, we only consider a subset of them,
+        indicated by :code:`indices` with shape :code:`(..., num_sampled)`. :code:`...`
+        indicates batch dimensions that are broadcastable.
 
     Args:
         k: Number of top items to consider. If None, considers all sampled items.
@@ -474,6 +494,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
@@ -486,13 +507,13 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         relevance: jnp.ndarray,
         **_,
     ) -> None:
-        """Update the metric with a batch of queries.
+        """Update the mean average precision with a batch of query/key embeddings.
 
         Args:
-            query: Query embeddings, shape (*batch_shape, num_features).
-            keys: Key embeddings for all candidates, shape (num_candidates, num_features).
-            indices: Indices into keys for each query, shape (*batch_shape, num_sampled).
-            relevance: Relevance labels for indexed items, shape (*batch_shape, num_sampled).
+            query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
+            keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
+            indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -521,18 +542,20 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         self.num_queries.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the mean average precision."""
         return self.total_ap.value / self.num_queries.value
 
 
 class DotProductNDCG(nnx.Metric):
-    """Normalized Discounted Cumulative Gain computed from query/key embeddings via dot product.
+    """Normalized Discounted Cumulative Gain using dot product scores between query and key embeddings.
 
-    The ranked score is computed as :code:`query @ keys[indices].T`, where :code:`query`
-    are embeddings with shape :code:`(..., num_features)` and :code:`keys` are
-    embeddings with shape :code:`(num_candidates, num_features)`. When the number of
-    candidates is large, we only consider a subset of them, indicated by :code:`indices`
-    with shape :code:`(..., num_sampled)`. :code:`...` indicates batch dimensions that
-    are broadcastable.
+    .. note::
+        The ranked score is computed as :code:`query @ keys[indices].T`, where
+        :code:`query` are embeddings with shape :code:`(..., num_features)` and
+        :code:`keys` are embeddings with shape :code:`(num_candidates, num_features)`.
+        When the number of candidates is large, we only consider a subset of them,
+        indicated by :code:`indices` with shape :code:`(..., num_sampled)`. :code:`...`
+        indicates batch dimensions that are broadcastable.
 
     Args:
         k: Number of top items to consider. If None, considers all sampled items.
@@ -544,6 +567,7 @@ class DotProductNDCG(nnx.Metric):
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
+        """Reset the metric state in-place."""
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
@@ -556,13 +580,13 @@ class DotProductNDCG(nnx.Metric):
         relevance: jnp.ndarray,
         **_,
     ) -> None:
-        """Update the metric with a batch of queries.
+        """Update the NDCG with a batch of query/key embeddings.
 
         Args:
-            query: Query embeddings, shape (*batch_shape, num_features).
-            keys: Key embeddings for all candidates, shape (num_candidates, num_features).
-            indices: Indices into keys for each query, shape (*batch_shape, num_sampled).
-            relevance: Relevance labels for indexed items, shape (*batch_shape, num_sampled).
+            query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
+            keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
+            indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -591,4 +615,5 @@ class DotProductNDCG(nnx.Metric):
         self.count.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
+        """Compute and return the NDCG."""
         return self.total_ndcg.value / self.count.value

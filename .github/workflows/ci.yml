@@ -26,6 +26,10 @@ jobs:
         run: uv run pyright
       - name: Test
         run: uv run pytest
+      - name: Docs
+        run: |
+          uv run sphinx-build -W -b html docs docs/_build
+          uv run sphinx-build -W -b doctest docs docs/_build
 
   publish:
     if: github.ref == 'refs/heads/main'
