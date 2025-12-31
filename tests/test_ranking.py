@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from conftest import update_and_compute
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import ndcg_score
 
@@ -154,14 +155,15 @@ METRICS = [
         ([0.9, 0.8, 0.7, 0.6], [1, 3, 2, 0], 3),
     ],
 )
-def test_metric_matches_sklearn(metric_cls, sklearn_fn, scores, relevance, k):
+def test_metric_matches_sklearn(metric_cls, sklearn_fn, scores, relevance, k, jit):
     """Verify our metrics match sklearn."""
     scores = jnp.array(scores, dtype=jnp.float32)
     relevance = jnp.array(relevance, dtype=jnp.float32)
 
     metric = metric_cls(k=k)
-    metric.update(scores=scores, relevance=relevance)
-    actual = float(metric.compute())
+    update, compute = update_and_compute(metric, jit)
+    update(scores=scores, relevance=relevance)
+    actual = float(compute())
 
     expected = sklearn_fn(scores, relevance, k)
 
@@ -169,19 +171,20 @@ def test_metric_matches_sklearn(metric_cls, sklearn_fn, scores, relevance, k):
 
 
 @pytest.mark.parametrize("metric_cls,sklearn_fn", METRICS)
-def test_metric_accumulation(metric_cls, sklearn_fn):
+def test_metric_accumulation(metric_cls, sklearn_fn, jit):
     """Accumulated metric over batches matches sklearn on combined data."""
     metric = metric_cls(k=2)
+    update, compute = update_and_compute(metric, jit)
 
     scores1 = jnp.array([0.9, 0.8, 0.1, 0.2], dtype=jnp.float32)
     relevance1 = jnp.array([1, 1, 0, 0], dtype=jnp.float32)
-    metric.update(scores=scores1, relevance=relevance1)
+    update(scores=scores1, relevance=relevance1)
 
     scores2 = jnp.array([0.1, 0.2, 0.9, 0.8], dtype=jnp.float32)
     relevance2 = jnp.array([1, 1, 0, 0], dtype=jnp.float32)
-    metric.update(scores=scores2, relevance=relevance2)
+    update(scores=scores2, relevance=relevance2)
 
-    actual = float(metric.compute())
+    actual = float(compute())
 
     all_scores = jnp.stack([scores1, scores2])
     all_relevance = jnp.stack([relevance1, relevance2])
@@ -191,21 +194,22 @@ def test_metric_accumulation(metric_cls, sklearn_fn):
 
 
 @pytest.mark.parametrize("metric_cls,sklearn_fn", METRICS)
-def test_metric_reset(metric_cls, sklearn_fn):
+def test_metric_reset(metric_cls, sklearn_fn, jit):
     """Reset clears accumulated state."""
     metric = metric_cls(k=2)
+    update, compute = update_and_compute(metric, jit)
 
-    metric.update(
+    update(
         scores=jnp.array([0.9, 0.8, 0.1, 0.2], dtype=jnp.float32),
         relevance=jnp.array([1, 1, 0, 0], dtype=jnp.float32),
     )
     metric.reset()
-    metric.update(
+    update(
         scores=jnp.array([0.1, 0.2, 0.9, 0.8], dtype=jnp.float32),
         relevance=jnp.array([1, 1, 0, 0], dtype=jnp.float32),
     )
 
-    actual = float(metric.compute())
+    actual = float(compute())
 
     expected = sklearn_fn(
         np.array([[0.1, 0.2, 0.9, 0.8]]),
@@ -233,7 +237,7 @@ DOT_PRODUCT_TO_BASE = [
 
 @pytest.mark.parametrize("dp_cls,base_cls", DOT_PRODUCT_TO_BASE)
 @pytest.mark.parametrize("batch_shape", [(4,), (2, 3), (2, 2, 2)])
-def test_dot_product_equals_base(dp_cls, base_cls, batch_shape):
+def test_dot_product_equals_base(dp_cls, base_cls, batch_shape, jit):
     """DotProduct* equals base metric for various batch shapes."""
     rng = np.random.default_rng(123)
     num_features = 4
@@ -249,7 +253,8 @@ def test_dot_product_equals_base(dp_cls, base_cls, batch_shape):
     scores = np.einsum("...f,cf->...c", query, keys)
 
     dp_metric = dp_cls(k=k)
-    dp_metric.update(
+    dp_update, dp_compute = update_and_compute(dp_metric, jit)
+    dp_update(
         query=jnp.array(query),
         keys=jnp.array(keys),
         indices=jnp.array(indices),
@@ -257,15 +262,14 @@ def test_dot_product_equals_base(dp_cls, base_cls, batch_shape):
     )
 
     base_metric = base_cls(k=k)
-    base_metric.update(scores=jnp.array(scores), relevance=jnp.array(relevance))
+    base_update, base_compute = update_and_compute(base_metric, jit)
+    base_update(scores=jnp.array(scores), relevance=jnp.array(relevance))
 
-    assert_almost_equal(
-        float(dp_metric.compute()), float(base_metric.compute()), decimal=5
-    )
+    assert_almost_equal(float(dp_compute()), float(base_compute()), decimal=5)
 
 
 @pytest.mark.parametrize("dp_cls,base_cls", DOT_PRODUCT_TO_BASE)
-def test_dot_product_accumulation(dp_cls, base_cls):
+def test_dot_product_accumulation(dp_cls, base_cls, jit):
     """DotProduct* accumulation matches base metric accumulation."""
     rng = np.random.default_rng(456)
     num_features = 8
@@ -274,6 +278,8 @@ def test_dot_product_accumulation(dp_cls, base_cls):
 
     dp_metric = dp_cls(k=k)
     base_metric = base_cls(k=k)
+    dp_update, dp_compute = update_and_compute(dp_metric, jit)
+    base_update, base_compute = update_and_compute(base_metric, jit)
 
     for batch_size in [2, 3, 1]:
         query = rng.standard_normal((batch_size, num_features)).astype(np.float32)
@@ -284,21 +290,19 @@ def test_dot_product_accumulation(dp_cls, base_cls):
         )
         scores = query @ keys.T
 
-        dp_metric.update(
+        dp_update(
             query=jnp.array(query),
             keys=jnp.array(keys),
             indices=jnp.array(indices),
             relevance=jnp.array(relevance),
         )
-        base_metric.update(scores=jnp.array(scores), relevance=jnp.array(relevance))
+        base_update(scores=jnp.array(scores), relevance=jnp.array(relevance))
 
-    assert_almost_equal(
-        float(dp_metric.compute()), float(base_metric.compute()), decimal=5
-    )
+    assert_almost_equal(float(dp_compute()), float(base_compute()), decimal=5)
 
 
 @pytest.mark.parametrize("dp_cls,base_cls", DOT_PRODUCT_TO_BASE)
-def test_dot_product_per_query_indices(dp_cls, base_cls):
+def test_dot_product_per_query_indices(dp_cls, base_cls, jit):
     """Per-query indices correctly select different items for each query."""
     rng = np.random.default_rng(42)
     num_features = 4
@@ -320,7 +324,8 @@ def test_dot_product_per_query_indices(dp_cls, base_cls):
             expected_scores[b, s] = query[b] @ keys[indices[b, s]]
 
     dp_metric = dp_cls(k=3)
-    dp_metric.update(
+    dp_update, dp_compute = update_and_compute(dp_metric, jit)
+    dp_update(
         query=jnp.array(query),
         keys=jnp.array(keys),
         indices=jnp.array(indices),
@@ -328,17 +333,14 @@ def test_dot_product_per_query_indices(dp_cls, base_cls):
     )
 
     base_metric = base_cls(k=3)
-    base_metric.update(
-        scores=jnp.array(expected_scores), relevance=jnp.array(relevance)
-    )
+    base_update, base_compute = update_and_compute(base_metric, jit)
+    base_update(scores=jnp.array(expected_scores), relevance=jnp.array(relevance))
 
-    assert_almost_equal(
-        float(dp_metric.compute()), float(base_metric.compute()), decimal=5
-    )
+    assert_almost_equal(float(dp_compute()), float(base_compute()), decimal=5)
 
 
 @pytest.mark.parametrize("dp_cls,base_cls", DOT_PRODUCT_TO_BASE)
-def test_dot_product_k_larger_than_subset(dp_cls, base_cls):
+def test_dot_product_k_larger_than_subset(dp_cls, base_cls, jit):
     """When k > num_sampled, effective_k = num_sampled is used."""
     rng = np.random.default_rng(111)
     num_features = 4
@@ -351,7 +353,8 @@ def test_dot_product_k_larger_than_subset(dp_cls, base_cls):
     scores = query @ keys.T
 
     dp_metric = dp_cls(k=10)  # k > num_candidates
-    dp_metric.update(
+    dp_update, dp_compute = update_and_compute(dp_metric, jit)
+    dp_update(
         query=jnp.array(query),
         keys=jnp.array(keys),
         indices=jnp.array(indices),
@@ -360,14 +363,13 @@ def test_dot_product_k_larger_than_subset(dp_cls, base_cls):
 
     # Should match base metric with k=4 (effective_k)
     base_metric = base_cls(k=4)
-    base_metric.update(scores=jnp.array(scores), relevance=jnp.array(relevance))
+    base_update, base_compute = update_and_compute(base_metric, jit)
+    base_update(scores=jnp.array(scores), relevance=jnp.array(relevance))
 
-    assert_almost_equal(
-        float(dp_metric.compute()), float(base_metric.compute()), decimal=5
-    )
+    assert_almost_equal(float(dp_compute()), float(base_compute()), decimal=5)
 
 
-def test_dot_product_variable_subset_sizes():
+def test_dot_product_variable_subset_sizes(jit):
     """Variable subset sizes across updates are handled correctly.
 
     Tests that DotProductPrecisionAtK correctly tracks total_items_considered
@@ -375,6 +377,7 @@ def test_dot_product_variable_subset_sizes():
     """
     # Use one-hot keys so scores = query values directly
     dp_metric = DotProductPrecisionAtK(k=3)
+    update, compute = update_and_compute(dp_metric, jit)
 
     # First update: 4 items, effective_k=3
     # Scores will be [0.9, 0.8, 0.7, 0.6], top-3 are indices 0,1,2
@@ -383,7 +386,7 @@ def test_dot_product_variable_subset_sizes():
     query1 = np.array([[0.9, 0.8, 0.7, 0.6]], dtype=np.float32)
     indices1 = np.arange(4).reshape(1, -1)
     relevance1 = np.array([[1, 1, 0, 0]], dtype=np.float32)
-    dp_metric.update(
+    update(
         query=jnp.array(query1),
         keys=jnp.array(keys1),
         indices=jnp.array(indices1),
@@ -397,14 +400,14 @@ def test_dot_product_variable_subset_sizes():
     query2 = np.array([[0.9, 0.1]], dtype=np.float32)
     indices2 = np.arange(2).reshape(1, -1)
     relevance2 = np.array([[1, 0]], dtype=np.float32)
-    dp_metric.update(
+    update(
         query=jnp.array(query2),
         keys=jnp.array(keys2),
         indices=jnp.array(indices2),
         relevance=jnp.array(relevance2),
     )
 
-    result = float(dp_metric.compute())
+    result = float(compute())
     # Total relevant in top-k: 2 (from first) + 1 (from second) = 3
     # Total items considered: 3 + 2 = 5
     # Expected precision: 3/5 = 0.6
