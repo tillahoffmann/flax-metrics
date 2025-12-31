@@ -273,8 +273,8 @@ class NDCG(nnx.Metric):
         >>> relevance = jnp.array([  3,   2,   1,   0])
         >>> metric = NDCG(k=3)
         >>> metric.update(scores=scores, relevance=relevance)
-        >>> float(metric.compute())  # DCG / IDCG
-        0.5525...
+        >>> metric.compute()  # DCG / IDCG
+        Array(0.5525..., dtype=float32)
     """
 
     def __init__(self, k: int | None = None) -> None:

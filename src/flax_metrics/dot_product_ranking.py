@@ -375,8 +375,8 @@ class DotProductNDCG(nnx.Metric):
         >>> relevance = jnp.array([1, 3, 2])
         >>> metric = DotProductNDCG()
         >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
-        >>> float(metric.compute())  # DCG / IDCG
-        0.8174...
+        >>> metric.compute()  # DCG / IDCG
+        Array(0.8174..., dtype=float32)
     """
 
     def __init__(self, k: int | None = None) -> None:
