@@ -33,3 +33,10 @@ repos:
         language: system
         files: ^(src/|pyproject\.toml)
         pass_filenames: false
+
+      - id: docs
+        name: docs
+        entry: bash -c 'rm -rf docs/_build && uv run sphinx-build -W -b html docs docs/_build && uv run sphinx-build -W -b doctest docs docs/_build'
+        language: system
+        files: ^(src/|docs/)
+        pass_filenames: false
