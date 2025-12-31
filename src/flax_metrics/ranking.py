@@ -53,8 +53,8 @@ class PrecisionAtK(nnx.Metric):
         # Gather relevance values for top-k items
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        # Accumulate counts
-        self.relevant_in_top_k.value += top_k_relevance.sum()
+        # Accumulate counts (binary relevance: any value > 0 is relevant)
+        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
         self.num_queries.value += num_queries
 
     def compute(self) -> jnp.ndarray:
@@ -104,9 +104,9 @@ class RecallAtK(nnx.Metric):
         # Gather relevance values for top-k items
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        # Accumulate counts
-        self.relevant_in_top_k.value += top_k_relevance.sum()
-        self.total_relevant.value += relevance.sum()
+        # Accumulate counts (binary relevance: any value > 0 is relevant)
+        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
+        self.total_relevant.value += (relevance > 0).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""

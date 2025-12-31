@@ -97,7 +97,8 @@ class DotProductPrecisionAtK(nnx.Metric):
         _, top_k_indices = lax.top_k(scores, effective_k)
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        self.relevant_in_top_k.value += top_k_relevance.sum()
+        # Binary relevance: any value > 0 is relevant
+        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
         self.total_items_considered.value += num_queries * effective_k
 
     def compute(self) -> jnp.ndarray:
@@ -168,8 +169,9 @@ class DotProductRecallAtK(nnx.Metric):
         _, top_k_indices = lax.top_k(scores, effective_k)
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        self.relevant_in_top_k.value += top_k_relevance.sum()
-        self.total_relevant.value += relevance.sum()
+        # Binary relevance: any value > 0 is relevant
+        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
+        self.total_relevant.value += (relevance > 0).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
