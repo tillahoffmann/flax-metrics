@@ -39,6 +39,20 @@ class DotProductPrecisionAtK(nnx.Metric):
 
     Args:
         k: Number of top items to consider.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import DotProductPrecisionAtK
+        >>>
+        >>> query = jnp.array([1.0, 0.0])
+        >>> keys = jnp.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
+        >>> indices = jnp.array([0, 1, 2])
+        >>> relevance = jnp.array([1, 0, 1])
+        >>> metric = DotProductPrecisionAtK(k=2)
+        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.compute()  # top-2 by score are indices 0 (relevant), 1 (not)
+        Array(0.5, dtype=float32)
     """
 
     def __init__(self, k: int) -> None:
@@ -104,6 +118,20 @@ class DotProductRecallAtK(nnx.Metric):
 
     Args:
         k: Number of top items to consider.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import DotProductRecallAtK
+        >>>
+        >>> query = jnp.array([1.0, 0.0])
+        >>> keys = jnp.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
+        >>> indices = jnp.array([0, 1, 2])
+        >>> relevance = jnp.array([1, 1, 1])
+        >>> metric = DotProductRecallAtK(k=2)
+        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.compute()  # 2 of 3 relevant items in top-2
+        Array(0.6666667, dtype=float32)
     """
 
     def __init__(self, k: int) -> None:
@@ -161,6 +189,20 @@ class DotProductMeanReciprocalRank(nnx.Metric):
 
     Args:
         k: Number of top items to consider. If None, considers all sampled items.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import DotProductMeanReciprocalRank
+        >>>
+        >>> query = jnp.array([1.0, 0.0])
+        >>> keys = jnp.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
+        >>> indices = jnp.array([0, 1, 2])
+        >>> relevance = jnp.array([0, 0, 1])
+        >>> metric = DotProductMeanReciprocalRank()
+        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.compute()  # first relevant at rank 3
+        Array(0.33333334, dtype=float32)
     """
 
     def __init__(self, k: int | None = None) -> None:
@@ -234,6 +276,20 @@ class DotProductMeanAveragePrecision(nnx.Metric):
 
     Args:
         k: Number of top items to consider. If None, considers all sampled items.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import DotProductMeanAveragePrecision
+        >>>
+        >>> query = jnp.array([1.0, 0.0])
+        >>> keys = jnp.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
+        >>> indices = jnp.array([0, 1, 2])
+        >>> relevance = jnp.array([1, 0, 1])
+        >>> metric = DotProductMeanAveragePrecision()
+        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.compute()  # (1/1 + 2/3) / 2
+        Array(0.8333334, dtype=float32)
     """
 
     def __init__(self, k: int | None = None) -> None:
@@ -307,6 +363,20 @@ class DotProductNDCG(nnx.Metric):
 
     Args:
         k: Number of top items to consider. If None, considers all sampled items.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import DotProductNDCG
+        >>>
+        >>> query = jnp.array([1.0, 0.0])
+        >>> keys = jnp.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
+        >>> indices = jnp.array([0, 1, 2])
+        >>> relevance = jnp.array([1, 3, 2])
+        >>> metric = DotProductNDCG()
+        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> float(metric.compute())  # DCG / IDCG
+        0.8174...
     """
 
     def __init__(self, k: int | None = None) -> None:
