@@ -65,6 +65,8 @@ class PrecisionAtK(nnx.Metric):
 class RecallAtK(nnx.Metric):
     """Recall@K, the fraction of relevant items that appear in the top-k ranked results.
 
+    Computes mean recall over all queries (macro-average).
+
     Args:
         k: Number of top items to consider.
 
@@ -83,13 +85,13 @@ class RecallAtK(nnx.Metric):
 
     def __init__(self, k: int) -> None:
         self.k = k
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
         """Update the recall@k with a batch of scored items.
@@ -98,19 +100,32 @@ class RecallAtK(nnx.Metric):
             scores: Scores for each item, shape :code:`(..., num_items)`.
             relevance: Relevance labels, same shape as scores.
         """
+        # Flatten batch dimensions to (num_queries, num_items)
+        original_shape = scores.shape
+        scores = scores.reshape(-1, original_shape[-1])
+        relevance = relevance.reshape(-1, original_shape[-1])
+
         # Get top-k indices along last axis (descending order)
         _, top_k_indices = lax.top_k(scores, self.k)
 
         # Gather relevance values for top-k items
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        # Accumulate counts (binary relevance: any value > 0 is relevant)
-        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
-        self.total_relevant.value += (relevance > 0).sum()
+        # Compute per-query recall (binary relevance: any value > 0 is relevant)
+        relevant_in_top_k = (top_k_relevance > 0).sum(axis=-1)
+        total_relevant = (relevance > 0).sum(axis=-1)
+
+        # Handle queries with no relevant items (avoid division by zero)
+        recall_per_query = jnp.where(
+            total_relevant > 0, relevant_in_top_k / total_relevant, 0.0
+        )
+
+        self.total_recall.value += recall_per_query.sum()
+        self.num_queries.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
-        return self.relevant_in_top_k.value / self.total_relevant.value
+        return self.total_recall.value / self.num_queries.value
 
 
 class MeanReciprocalRank(nnx.Metric):
