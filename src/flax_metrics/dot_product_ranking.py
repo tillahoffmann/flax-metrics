@@ -97,7 +97,8 @@ class DotProductPrecisionAtK(nnx.Metric):
         _, top_k_indices = lax.top_k(scores, effective_k)
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        self.relevant_in_top_k.value += top_k_relevance.sum()
+        # Binary relevance: any value > 0 is relevant
+        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
         self.total_items_considered.value += num_queries * effective_k
 
     def compute(self) -> jnp.ndarray:
@@ -107,6 +108,8 @@ class DotProductPrecisionAtK(nnx.Metric):
 
 class DotProductRecallAtK(nnx.Metric):
     """Recall@K using dot product scores between query and key embeddings.
+
+    Computes mean recall over all queries (macro-average).
 
     .. note::
         The ranked score is computed as :code:`query @ keys[indices].T`, where
@@ -136,13 +139,13 @@ class DotProductRecallAtK(nnx.Metric):
 
     def __init__(self, k: int) -> None:
         self.k = k
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.total_relevant = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
     def update(
         self,
@@ -165,15 +168,28 @@ class DotProductRecallAtK(nnx.Metric):
         num_sampled = scores.shape[-1]
         effective_k = min(self.k, num_sampled)
 
+        # Flatten batch dimensions to (num_queries, num_sampled)
+        scores = scores.reshape(-1, num_sampled)
+        relevance = relevance.reshape(-1, num_sampled)
+
         _, top_k_indices = lax.top_k(scores, effective_k)
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
-        self.relevant_in_top_k.value += top_k_relevance.sum()
-        self.total_relevant.value += relevance.sum()
+        # Compute per-query recall (binary relevance: any value > 0 is relevant)
+        relevant_in_top_k = (top_k_relevance > 0).sum(axis=-1)
+        total_relevant = (relevance > 0).sum(axis=-1)
+
+        # Handle queries with no relevant items (avoid division by zero)
+        recall_per_query = jnp.where(
+            total_relevant > 0, relevant_in_top_k / total_relevant, 0.0
+        )
+
+        self.total_recall.value += recall_per_query.sum()
+        self.num_queries.value += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
-        return self.relevant_in_top_k.value / self.total_relevant.value
+        return self.total_recall.value / self.num_queries.value
 
 
 class DotProductMeanReciprocalRank(nnx.Metric):
