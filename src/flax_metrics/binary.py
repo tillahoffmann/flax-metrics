@@ -38,9 +38,9 @@ class Recall(nnx.metrics.Average):
             labels: Ground truth binary labels.
         """
         # The denominator is the number of positives.
-        self.count.value += labels.sum()
+        self.count[...] += labels.sum()
         # The numerator is the number of true positives.
-        self.total.value += ((logits > self.threshold) * labels).sum()
+        self.total[...] += ((logits > self.threshold) * labels).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall."""
@@ -79,9 +79,9 @@ class Precision(nnx.metrics.Average):
         """
         predictions = logits > self.threshold
         # The denominator is the number of identified positives.
-        self.count.value += predictions.sum()
+        self.count[...] += predictions.sum()
         # The numerator is the number of those that are actually positives.
-        self.total.value += (predictions * labels).sum()
+        self.total[...] += (predictions * labels).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision."""
@@ -131,15 +131,15 @@ class F1Score(nnx.Metric):
             labels: Ground truth binary labels.
         """
         predictions = logits > self.threshold
-        self.true_positives.value += (predictions * labels).sum()
-        self.actual_positives.value += labels.sum()
-        self.predicted_positives.value += predictions.sum()
+        self.true_positives[...] += (predictions * labels).sum()
+        self.actual_positives[...] += labels.sum()
+        self.predicted_positives[...] += predictions.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the F1 score."""
         # F1 = 2 * TP / (2 * TP + FP + FN) = 2 * TP / (predicted + actual)
         return (
             2
-            * self.true_positives.value
-            / (self.predicted_positives.value + self.actual_positives.value)
+            * self.true_positives[...]
+            / (self.predicted_positives[...] + self.actual_positives[...])
         )
