@@ -54,12 +54,12 @@ class PrecisionAtK(nnx.Metric):
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
 
         # Accumulate counts (binary relevance: any value > 0 is relevant)
-        self.relevant_in_top_k.value += (top_k_relevance > 0).sum()
-        self.num_queries.value += num_queries
+        self.relevant_in_top_k[...] += (top_k_relevance > 0).sum()
+        self.num_queries[...] += num_queries
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision@k."""
-        return self.relevant_in_top_k.value / (self.num_queries.value * self.k)
+        return self.relevant_in_top_k[...] / (self.num_queries[...] * self.k)
 
 
 class RecallAtK(nnx.Metric):
@@ -120,12 +120,12 @@ class RecallAtK(nnx.Metric):
             total_relevant > 0, relevant_in_top_k / total_relevant, 0.0
         )
 
-        self.total_recall.value += recall_per_query.sum()
-        self.num_queries.value += scores.shape[0]
+        self.total_recall[...] += recall_per_query.sum()
+        self.num_queries[...] += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
-        return self.total_recall.value / self.num_queries.value
+        return self.total_recall[...] / self.num_queries[...]
 
 
 class MeanReciprocalRank(nnx.Metric):
@@ -189,12 +189,12 @@ class MeanReciprocalRank(nnx.Metric):
             0.0,
         )
 
-        self.total_rr.value += reciprocal_rank.sum()
-        self.num_queries.value += scores.shape[0]
+        self.total_rr[...] += reciprocal_rank.sum()
+        self.num_queries[...] += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean reciprocal rank."""
-        return self.total_rr.value / self.num_queries.value
+        return self.total_rr[...] / self.num_queries[...]
 
 
 class MeanAveragePrecision(nnx.Metric):
@@ -265,12 +265,12 @@ class MeanAveragePrecision(nnx.Metric):
         # Handle queries with no relevant items
         ap = jnp.where(total_relevant > 0, ap_sum / total_relevant, 0.0)
 
-        self.total_ap.value += ap.sum()
-        self.num_queries.value += scores.shape[0]
+        self.total_ap[...] += ap.sum()
+        self.num_queries[...] += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean average precision."""
-        return self.total_ap.value / self.num_queries.value
+        return self.total_ap[...] / self.num_queries[...]
 
 
 class NDCG(nnx.Metric):
@@ -333,9 +333,9 @@ class NDCG(nnx.Metric):
         # NDCG = DCG / IDCG (handle zero IDCG)
         ndcg = jnp.where(idcg > 0, dcg / idcg, 0.0)
 
-        self.total_ndcg.value += ndcg.sum()
-        self.count.value += scores.shape[0]
+        self.total_ndcg[...] += ndcg.sum()
+        self.count[...] += scores.shape[0]
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the NDCG."""
-        return self.total_ndcg.value / self.count.value
+        return self.total_ndcg[...] / self.count[...]
