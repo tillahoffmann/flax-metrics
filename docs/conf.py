@@ -22,6 +22,10 @@ for cls in get_all_subclasses(nnx.Metric):
 
 project = "Flax Metrics"
 html_theme = "sphinx_book_theme"
+html_theme_options = {
+    "repository_url": "https://github.com/tillahoffmann/flax-metrics",
+    "use_repository_button": True,
+}
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
