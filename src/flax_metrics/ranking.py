@@ -47,8 +47,11 @@ class PrecisionAtK(nnx.Metric):
         # Flatten batch dimensions to count queries
         num_queries = scores.size // scores.shape[-1]
 
+        # Cap k at the number of items available
+        k = min(self.k, scores.shape[-1])
+
         # Get top-k indices along last axis (descending order)
-        _, top_k_indices = lax.top_k(scores, self.k)
+        _, top_k_indices = lax.top_k(scores, k)
 
         # Gather relevance values for top-k items
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
@@ -105,8 +108,11 @@ class RecallAtK(nnx.Metric):
         scores = scores.reshape(-1, original_shape[-1])
         relevance = relevance.reshape(-1, original_shape[-1])
 
+        # Cap k at the number of items available
+        k = min(self.k, scores.shape[-1])
+
         # Get top-k indices along last axis (descending order)
-        _, top_k_indices = lax.top_k(scores, self.k)
+        _, top_k_indices = lax.top_k(scores, k)
 
         # Gather relevance values for top-k items
         top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
@@ -171,7 +177,8 @@ class MeanReciprocalRank(nnx.Metric):
         scores = scores.reshape(-1, original_shape[-1])
         relevance = relevance.reshape(-1, original_shape[-1])
 
-        k = self.k if self.k is not None else scores.shape[-1]
+        # Cap k at the number of items available
+        k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
 
         # Get top-k indices by score
         _, top_k_indices = lax.top_k(scores, k)
@@ -241,7 +248,8 @@ class MeanAveragePrecision(nnx.Metric):
         scores = scores.reshape(-1, original_shape[-1])
         relevance = relevance.reshape(-1, original_shape[-1])
 
-        k = self.k if self.k is not None else scores.shape[-1]
+        # Cap k at the number of items available
+        k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
 
         # Get top-k indices by score
         _, top_k_indices = lax.top_k(scores, k)
@@ -314,7 +322,8 @@ class NDCG(nnx.Metric):
         scores = scores.reshape(-1, original_shape[-1])
         relevance = relevance.reshape(-1, original_shape[-1])
 
-        k = self.k if self.k is not None else scores.shape[-1]
+        # Cap k at the number of items available
+        k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
 
         # Get top-k indices by score
         _, top_k_indices = lax.top_k(scores, k)

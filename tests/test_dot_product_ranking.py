@@ -62,13 +62,22 @@ DOT_PRODUCT_METRICS = [
 
 
 @pytest.mark.parametrize("dp_cls,ir_measure_fn", DOT_PRODUCT_METRICS)
-@pytest.mark.parametrize("batch_shape", [(4,), (2, 3), (2, 2, 2)])
-def test_dot_product_matches_ir_measures(dp_cls, ir_measure_fn, batch_shape, jit):
+@pytest.mark.parametrize(
+    "batch_shape,num_candidates,k",
+    [
+        ((4,), 5, 2),
+        ((2, 3), 5, 2),
+        ((2, 2, 2), 5, 2),
+        # Larger depth than items available
+        ((2,), 4, 10),
+    ],
+)
+def test_dot_product_matches_ir_measures(
+    dp_cls, ir_measure_fn, batch_shape, num_candidates, k, jit
+):
     """DotProduct* matches ir-measures for various batch shapes."""
     rng = np.random.default_rng(123)
     num_features = 4
-    num_candidates = 5
-    k = 2
 
     query = rng.standard_normal((*batch_shape, num_features)).astype(np.float32)
     keys = rng.standard_normal((num_candidates, num_features)).astype(np.float32)
@@ -178,7 +187,7 @@ def test_dot_product_per_query_indices(dp_cls, ir_measure_fn, jit):
 
 @pytest.mark.parametrize("dp_cls,ir_measure_fn", DOT_PRODUCT_METRICS)
 def test_dot_product_k_larger_than_subset(dp_cls, ir_measure_fn, jit):
-    """When k > num_sampled, effective_k = num_sampled is used."""
+    """When k > num_sampled, metrics match ir-measures at declared k."""
     rng = np.random.default_rng(111)
     num_features = 4
     num_candidates = 4  # Only 4 items, but k=10
@@ -199,8 +208,8 @@ def test_dot_product_k_larger_than_subset(dp_cls, ir_measure_fn, jit):
     )
 
     actual = float(dp_compute())
-    # effective_k = 4, so compare with ir-measures at k=4
-    expected = ir_measures_score(ir_measure_fn(4), scores, relevance)
+    # Compare with ir-measures at declared k (not effective_k)
+    expected = ir_measures_score(ir_measure_fn(10), scores, relevance)
 
     assert_almost_equal(actual, expected, decimal=5)
 
@@ -208,14 +217,14 @@ def test_dot_product_k_larger_than_subset(dp_cls, ir_measure_fn, jit):
 def test_dot_product_variable_subset_sizes(jit):
     """Variable subset sizes across updates are handled correctly.
 
-    Tests that DotProductPrecisionAtK correctly tracks total_items_considered
-    (sum of effective_k) rather than num_queries * k.
+    Tests that DotProductPrecisionAtK uses declared k in denominator,
+    matching ir-measures behavior.
     """
     # Use one-hot keys so scores = query values directly
     dp_metric = DotProductPrecisionAtK(k=3)
     update, compute = update_and_compute(dp_metric, jit)
 
-    # First update: 4 items, effective_k=3
+    # First update: 4 items, top-3 considered
     # Scores will be [0.9, 0.8, 0.7, 0.6], top-3 are indices 0,1,2
     # Relevance [1, 1, 0, 0] -> 2 relevant in top-3
     keys1 = np.eye(4, dtype=np.float32)
@@ -229,7 +238,7 @@ def test_dot_product_variable_subset_sizes(jit):
         relevance=jnp.array(relevance1),
     )
 
-    # Second update: 2 items, effective_k=2 (k=3 but only 2 items)
+    # Second update: 2 items (k=3 but only 2 available)
     # Scores will be [0.9, 0.1], top-2 are indices 0,1
     # Relevance [1, 0] -> 1 relevant in top-2
     keys2 = np.eye(2, dtype=np.float32)
@@ -245,6 +254,6 @@ def test_dot_product_variable_subset_sizes(jit):
 
     result = float(compute())
     # Total relevant in top-k: 2 (from first) + 1 (from second) = 3
-    # Total items considered: 3 + 2 = 5
-    # Expected precision: 3/5 = 0.6
-    assert_almost_equal(result, 0.6, decimal=5)
+    # Total items considered: 3 + 3 = 6 (uses declared k, not effective_k)
+    # Expected precision: 3/6 = 0.5
+    assert_almost_equal(result, 0.5, decimal=5)

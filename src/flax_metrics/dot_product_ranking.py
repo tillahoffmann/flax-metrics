@@ -99,7 +99,7 @@ class DotProductPrecisionAtK(nnx.Metric):
 
         # Binary relevance: any value > 0 is relevant
         self.relevant_in_top_k[...] += (top_k_relevance > 0).sum()
-        self.total_items_considered[...] += num_queries * effective_k
+        self.total_items_considered[...] += num_queries * self.k
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision@k."""
