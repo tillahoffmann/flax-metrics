@@ -1,7 +1,8 @@
 __pycache__
 .DS_Store
+.vscode/
 *.egg-info
-docs/_build/
-dist/
 build/
+dist/
+docs/_build/
 playground/

@@ -10,7 +10,7 @@ Flax NNX implementation of common metrics.
 
    >>> labels = jnp.asarray([ 0,  0,  0,  1,  1,  1])
    >>> logits = jnp.asarray([-1, -2,  2,  1, -1, -2])
-   
+
    >>> metric = Recall()
    >>> metric.update(labels=labels, logits=logits)
    >>> metric.compute()
@@ -21,18 +21,18 @@ Flax NNX implementation of common metrics.
    >>> metric.compute()
    Array(0.5, dtype=float32)
 
-Binary Classification Metrics
------------------------------
+Classification Metrics
+----------------------
 
-Metrics for evaluating binary classifiers, operating on logits and binary
-labels.
+Metrics for evaluating classifiers, operating on logits and binary, categorical, or multinomial labels.
 
 .. autosummary::
    :nosignatures:
 
-   ~flax_metrics.binary.Recall
-   ~flax_metrics.binary.Precision
-   ~flax_metrics.binary.F1Score
+   ~flax_metrics.classification.Recall
+   ~flax_metrics.classification.Precision
+   ~flax_metrics.classification.F1Score
+   ~flax_metrics.classification.LogProb
 
 Ranking Metrics
 ---------------
@@ -51,9 +51,7 @@ Metrics for evaluating ranked retrieval results using precomputed scores.
 Dot Product Ranking Metrics
 ---------------------------
 
-Ranking metrics where scores are computed as dot products between query and key
-embeddings. Useful for dense retrieval and embedding-based recommendation
-systems.
+Ranking metrics where scores are computed as dot products between query and key embeddings. Useful for dense retrieval and embedding-based recommendation systems.
 
 .. autosummary::
    :nosignatures:
@@ -69,6 +67,6 @@ systems.
    :caption: API Reference
    :hidden:
 
-   binary
+   classification
    ranking
    dot_product_ranking

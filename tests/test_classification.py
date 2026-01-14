@@ -1,10 +1,27 @@
 import jax.numpy as jnp
+import numpy as np
 import pytest
 from conftest import update_and_compute
+from jax.scipy.special import expit, softmax
 from numpy.testing import assert_almost_equal
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, log_loss, precision_score, recall_score
 
-from flax_metrics import F1Score, Precision, Recall
+from flax_metrics import F1Score, LogProb, Precision, Recall
+
+
+def _sklearn_negative_log_loss(labels, logits):
+    """Compute negative log loss, handling binary vs multiclass shapes."""
+    labels = np.asarray(labels)
+    logits = np.asarray(logits)
+    if logits.shape[-1] == 1:
+        # Binary: use sigmoid for probabilities
+        probs = expit(logits.squeeze(axis=-1))
+        labels = labels.squeeze(axis=-1)
+    else:
+        # Multiclass: use softmax for probabilities
+        probs = softmax(logits, axis=-1)
+    return -log_loss(labels, probs)
+
 
 METRICS = [
     (Recall, recall_score),
@@ -15,7 +32,7 @@ METRICS = [
 
 @pytest.mark.parametrize("metric_cls,sklearn_fn", METRICS)
 @pytest.mark.parametrize(
-    "logits,labels,threshold",
+    "logits, labels, threshold",
     [
         ([1.0, 1.0, -1.0, -1.0], [1, 1, 0, 0], 0.0),
         ([-1.0, -1.0, 1.0, 1.0], [1, 1, 0, 0], 0.0),
@@ -24,7 +41,9 @@ METRICS = [
         ([0.5, 0.6], [1, 0], 0.5),
     ],
 )
-def test_metric_matches_sklearn(metric_cls, sklearn_fn, logits, labels, threshold, jit):
+def test_binary_metric_matches_sklearn(
+    metric_cls, sklearn_fn, logits, labels, threshold, jit
+):
     """Verify our metrics match sklearn."""
     logits = jnp.array(logits)
     labels = jnp.array(labels)
@@ -38,6 +57,40 @@ def test_metric_matches_sklearn(metric_cls, sklearn_fn, logits, labels, threshol
     expected = sklearn_fn(labels, predictions)
 
     assert_almost_equal(actual, expected)
+
+
+@pytest.mark.parametrize(
+    "metric_cls, sklearn_fn",
+    [
+        (LogProb, _sklearn_negative_log_loss),
+    ],
+)
+@pytest.mark.parametrize(
+    "logits, labels",
+    [
+        # One-hot classification over four classes.
+        ([[1.0, 1.0, -1.0, -1.0]], [[1, 0, 0, 0]]),
+        # Batch of three binary classification.
+        ([[-3], [1], [2.5]], [[0], [1], [1]]),
+        # Extreme logits for numerical stability.
+        ([[100.0], [-100.0]], [[1], [0]]),
+        ([[100.0, -100.0, 0.0]], [[1, 0, 0]]),
+    ],
+)
+def test_multinomial_metric_matches_sklearn(
+    metric_cls, sklearn_fn, logits, labels, jit
+):
+    logits = jnp.asarray(logits)
+    labels = jnp.asarray(labels)
+
+    metric = metric_cls()
+    update, compute = update_and_compute(metric, jit)
+    update(logits=logits, labels=labels)
+    actual = float(compute())
+
+    expected = sklearn_fn(labels, logits)
+
+    assert_almost_equal(actual, expected, decimal=5)
 
 
 @pytest.mark.parametrize("metric_cls,sklearn_fn", METRICS)
