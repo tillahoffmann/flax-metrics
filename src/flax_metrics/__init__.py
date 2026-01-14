@@ -1,6 +1,6 @@
 from flax.nnx import metrics
 
-from .binary import F1Score, Precision, Recall
+from .classification import F1Score, LogProb, Precision, Recall
 from .dot_product_ranking import (
     DotProductMeanAveragePrecision,
     DotProductMeanReciprocalRank,
@@ -30,6 +30,7 @@ __all__ = [
     "DotProductPrecisionAtK",
     "DotProductRecallAtK",
     "F1Score",
+    "LogProb",
     "MeanAveragePrecision",
     "MeanReciprocalRank",
     "NDCG",

@@ -1,10 +1,12 @@
-"""Metrics for evaluating binary classifiers, including recall, precision, and F1-score.
-These metrics operate on logits and binary labels, applying a threshold to convert
-logits to predictions.
+"""Metrics for evaluating classifiers, including recall, precision, and F1-score. These
+metrics operate on logits and binary or multinomial labels, applying a threshold to
+convert logits to point estimates where required.
 """
 
 from flax import nnx
 from jax import numpy as jnp
+from jax.nn import logsumexp, softplus
+from jax.scipy.special import gammaln
 
 
 class Recall(nnx.metrics.Average):
@@ -143,3 +145,63 @@ class F1Score(nnx.Metric):
             * self.true_positives[...]
             / (self.predicted_positives[...] + self.actual_positives[...])
         )
+
+
+class LogProb(nnx.metrics.Average):
+    """Log probability score, the mean likelihood of an outcome.
+
+    The metric supports three modes:
+
+    1. Binary classification if the :code:`logits` and :code:`labels` have shape
+       :code:`(..., 1)`.
+    2. Categorical classification if the inputs have shape :code:`(..., num_classes)`
+       and the :code:`labels` are one-hot encoded, i.e.,
+       :code:`labels.sum(axis=-1) == 1`.
+    3. Multinomial outcomes if the inputs have shape :code:`(..., num_classes)` and the
+       :code:`labels` are many-hot encoded, i.e., :code:`labels.sum(axis=-1) > 1`.
+
+    Categorical and multinomial outcomes may be mixed within the same batch because
+    multinomial outcomes with one sample are equivalent to categorical outcomes.
+
+    Example:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import LogProb
+        >>>
+        >>> labels = jnp.array([[ 0,  0,  0,  1,  1,  1,  1]])
+        >>> logits = jnp.array([[-1, -1,  1,  1,  1, -1, -1]])
+        >>> metric = LogProb()
+        >>> metric.update(logits=logits, labels=labels)
+        >>> metric.compute()
+        Array(-5.879968, dtype=float32)
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+        """Update the metric with a batch of predictions.
+
+        Args:
+            logits: Predicted logits with shape :code:`(..., num_classes)`, where
+                :code:`...` denotes the batch shape. For binary classification, use
+                logits with shape :code:`(..., 1)`.
+            labels: Ground truth binary labels or multinomial counts with shape
+                :code:`(..., num_classes)`, where :code:`...` denotes the batch shape.
+                For binary classification, use logits with shape :code:`(..., 1)`.
+        """
+        if logits.shape[-1] == 1:
+            # Binary classification with likelihood based on (although using softplus)
+            # https://github.com/pyro-ppl/numpyro/blob/6a1af1f4795d9b0b179e76ab05a13cc561dcecca/numpyro/distributions/util.py#L297-L300.
+            log_prob = (logits * labels - softplus(logits)).squeeze(axis=-1)
+        else:
+            # Multinomial classification with likelihood based on
+            # https://github.com/pyro-ppl/numpyro/blob/6a1af1f4795d9b0b179e76ab05a13cc561dcecca/numpyro/distributions/discrete.py#L699-L708.
+            total = labels.sum(axis=-1)
+            norm = total * logsumexp(logits, axis=-1) - gammaln(total + 1)
+            log_prob = jnp.sum(labels * logits - gammaln(labels + 1), axis=-1) - norm
+        super().update(values=log_prob)
+
+    def compute(self) -> jnp.ndarray:
+        """Compute and return the mean log probability score."""
+        return super().compute()
