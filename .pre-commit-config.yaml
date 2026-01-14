@@ -29,7 +29,7 @@ repos:
 
       - id: build-check
         name: build-check
-        entry: bash -c 'uv build && uvx twine check dist/*'
+        entry: bash -c 'uv sync --all-groups && uv build && uvx twine check dist/*'
         language: system
         files: ^(src/|pyproject\.toml)
         pass_filenames: false
