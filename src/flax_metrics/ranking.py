@@ -22,7 +22,7 @@ class PrecisionAtK(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  0,   1,   1,   0])
         >>> metric = PrecisionAtK(k=2)
-        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.update(scores=scores, labels=relevance)
         >>> metric.compute()  # top-2 are indices 1, 2 both relevant
         Array(1., dtype=float32)
     """
@@ -37,12 +37,12 @@ class PrecisionAtK(nnx.Metric):
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
         """Update the precision@k with a batch of scored items.
 
         Args:
             scores: Scores for each item, shape :code:`(..., num_items)`.
-            relevance: Relevance labels, same shape as scores.
+            labels: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions to count queries
         num_queries = scores.size // scores.shape[-1]
@@ -54,7 +54,7 @@ class PrecisionAtK(nnx.Metric):
         _, top_k_indices = lax.top_k(scores, k)
 
         # Gather relevance values for top-k items
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Accumulate counts (binary relevance: any value > 0 is relevant)
         self.relevant_in_top_k[...] += (top_k_relevance > 0).sum()
@@ -81,7 +81,7 @@ class RecallAtK(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  1,   1,   1,   0])
         >>> metric = RecallAtK(k=2)
-        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.update(scores=scores, labels=relevance)
         >>> metric.compute()  # 2 of 3 relevant items in top-2
         Array(0.6666667, dtype=float32)
     """
@@ -96,17 +96,17 @@ class RecallAtK(nnx.Metric):
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
         """Update the recall@k with a batch of scored items.
 
         Args:
             scores: Scores for each item, shape :code:`(..., num_items)`.
-            relevance: Relevance labels, same shape as scores.
+            labels: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions to (num_queries, num_items)
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
-        relevance = relevance.reshape(-1, original_shape[-1])
+        labels = labels.reshape(-1, original_shape[-1])
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1])
@@ -115,11 +115,11 @@ class RecallAtK(nnx.Metric):
         _, top_k_indices = lax.top_k(scores, k)
 
         # Gather relevance values for top-k items
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Compute per-query recall (binary relevance: any value > 0 is relevant)
         relevant_in_top_k = (top_k_relevance > 0).sum(axis=-1)
-        total_relevant = (relevance > 0).sum(axis=-1)
+        total_relevant = (labels > 0).sum(axis=-1)
 
         # Handle queries with no relevant items (avoid division by zero)
         recall_per_query = jnp.where(
@@ -150,7 +150,7 @@ class MeanReciprocalRank(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  1,   0,   0,   1])
         >>> metric = MeanReciprocalRank()
-        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.update(scores=scores, labels=relevance)
         >>> metric.compute()  # first relevant at rank 3
         Array(0.33333334, dtype=float32)
     """
@@ -165,24 +165,24 @@ class MeanReciprocalRank(nnx.Metric):
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
         """Update the mean reciprocal rank with a batch of scored items.
 
         Args:
             scores: Scores for each item, shape :code:`(..., num_items)`.
-            relevance: Relevance labels, same shape as scores.
+            labels: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
-        relevance = relevance.reshape(-1, original_shape[-1])
+        labels = labels.reshape(-1, original_shape[-1])
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
 
         # Get top-k indices by score
         _, top_k_indices = lax.top_k(scores, k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Find rank of first relevant item (1-indexed)
         is_relevant = top_k_relevance > 0
@@ -221,7 +221,7 @@ class MeanAveragePrecision(nnx.Metric):
         >>> scores    = jnp.array([0.4, 0.3, 0.2, 0.1])
         >>> relevance = jnp.array([  1,   1,   0,   1])
         >>> metric = MeanAveragePrecision()
-        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.update(scores=scores, labels=relevance)
         >>> metric.compute()  # (1/1 + 2/2 + 3/4) / 3
         Array(0.9166667, dtype=float32)
     """
@@ -236,24 +236,24 @@ class MeanAveragePrecision(nnx.Metric):
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
         """Update the mean average precision with a batch of scored items.
 
         Args:
             scores: Scores for each item, shape :code:`(..., num_items)`.
-            relevance: Relevance labels, same shape as scores.
+            labels: Relevance labels, same shape as scores.
         """
         # Flatten batch dimensions
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
-        relevance = relevance.reshape(-1, original_shape[-1])
+        labels = labels.reshape(-1, original_shape[-1])
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
 
         # Get top-k indices by score
         _, top_k_indices = lax.top_k(scores, k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Convert to binary relevance for MAP
         top_k_binary = (top_k_relevance > 0).astype(jnp.float32)
@@ -268,7 +268,7 @@ class MeanAveragePrecision(nnx.Metric):
         # AP = sum(precision@k * rel(k)) / total_relevant
         # Only count positions where item is relevant
         ap_sum = (precision_at_k * top_k_binary).sum(axis=-1)
-        total_relevant = (relevance > 0).sum(axis=-1)
+        total_relevant = (labels > 0).sum(axis=-1)
 
         # Handle queries with no relevant items
         ap = jnp.where(total_relevant > 0, ap_sum / total_relevant, 0.0)
@@ -295,7 +295,7 @@ class NDCG(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  3,   2,   1,   0])
         >>> metric = NDCG(k=3)
-        >>> metric.update(scores=scores, relevance=relevance)
+        >>> metric.update(scores=scores, labels=relevance)
         >>> metric.compute()  # DCG / IDCG
         Array(0.5525..., dtype=float32)
     """
@@ -310,24 +310,24 @@ class NDCG(nnx.Metric):
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, relevance: jnp.ndarray, **_) -> None:
+    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
         """Update the NDCG with a batch of scored items.
 
         Args:
             scores: Scores for each item, shape :code:`(..., num_items)`.
-            relevance: Relevance labels (can be graded), same shape as scores.
+            labels: Relevance labels (can be graded), same shape as scores.
         """
         # Flatten all batch dimensions
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
-        relevance = relevance.reshape(-1, original_shape[-1])
+        labels = labels.reshape(-1, original_shape[-1])
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
 
         # Get top-k indices by score
         _, top_k_indices = lax.top_k(scores, k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Compute DCG: sum of relevance / log2(rank + 1)
         ranks = jnp.arange(1, k + 1)
@@ -335,8 +335,8 @@ class NDCG(nnx.Metric):
         dcg = (top_k_relevance / discounts).sum(axis=-1)
 
         # Compute IDCG: DCG for ideal ranking (sorted by relevance)
-        _, ideal_indices = lax.top_k(relevance, k)
-        ideal_relevance = jnp.take_along_axis(relevance, ideal_indices, axis=-1)
+        _, ideal_indices = lax.top_k(labels, k)
+        ideal_relevance = jnp.take_along_axis(labels, ideal_indices, axis=-1)
         idcg = (ideal_relevance / discounts).sum(axis=-1)
 
         # NDCG = DCG / IDCG (handle zero IDCG)
