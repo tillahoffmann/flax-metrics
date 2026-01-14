@@ -50,7 +50,7 @@ class DotProductPrecisionAtK(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 0, 1])
         >>> metric = DotProductPrecisionAtK(k=2)
-        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
         >>> metric.compute()  # top-2 by score are indices 0 (relevant), 1 (not)
         Array(0.5, dtype=float32)
     """
@@ -75,7 +75,7 @@ class DotProductPrecisionAtK(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        relevance: jnp.ndarray,
+        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the precision@k with a batch of query/key embeddings.
@@ -84,7 +84,7 @@ class DotProductPrecisionAtK(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -95,7 +95,7 @@ class DotProductPrecisionAtK(nnx.Metric):
 
         # Get top-k indices along last axis
         _, top_k_indices = lax.top_k(scores, effective_k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Binary relevance: any value > 0 is relevant
         self.relevant_in_top_k[...] += (top_k_relevance > 0).sum()
@@ -132,7 +132,7 @@ class DotProductRecallAtK(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 1, 1])
         >>> metric = DotProductRecallAtK(k=2)
-        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
         >>> metric.compute()  # 2 of 3 relevant items in top-2
         Array(0.6666667, dtype=float32)
     """
@@ -153,7 +153,7 @@ class DotProductRecallAtK(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        relevance: jnp.ndarray,
+        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the recall@k with a batch of query/key embeddings.
@@ -162,7 +162,7 @@ class DotProductRecallAtK(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -170,14 +170,14 @@ class DotProductRecallAtK(nnx.Metric):
 
         # Flatten batch dimensions to (num_queries, num_sampled)
         scores = scores.reshape(-1, num_sampled)
-        relevance = relevance.reshape(-1, num_sampled)
+        labels = labels.reshape(-1, num_sampled)
 
         _, top_k_indices = lax.top_k(scores, effective_k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Compute per-query recall (binary relevance: any value > 0 is relevant)
         relevant_in_top_k = (top_k_relevance > 0).sum(axis=-1)
-        total_relevant = (relevance > 0).sum(axis=-1)
+        total_relevant = (labels > 0).sum(axis=-1)
 
         # Handle queries with no relevant items (avoid division by zero)
         recall_per_query = jnp.where(
@@ -216,7 +216,7 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([0, 0, 1])
         >>> metric = DotProductMeanReciprocalRank()
-        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
         >>> metric.compute()  # first relevant at rank 3
         Array(0.33333334, dtype=float32)
     """
@@ -237,7 +237,7 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        relevance: jnp.ndarray,
+        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the mean reciprocal rank with a batch of query/key embeddings.
@@ -246,20 +246,20 @@ class DotProductMeanReciprocalRank(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
 
         # Flatten batch dimensions
         scores = scores.reshape(-1, num_sampled)
-        relevance = relevance.reshape(-1, num_sampled)
+        labels = labels.reshape(-1, num_sampled)
 
         k = self.k if self.k is not None else num_sampled
         effective_k = min(k, num_sampled)
 
         _, top_k_indices = lax.top_k(scores, effective_k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         is_relevant = top_k_relevance > 0
         first_relevant_idx = jnp.argmax(is_relevant, axis=-1)
@@ -303,7 +303,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 0, 1])
         >>> metric = DotProductMeanAveragePrecision()
-        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
         >>> metric.compute()  # (1/1 + 2/3) / 2
         Array(0.8333334, dtype=float32)
     """
@@ -324,7 +324,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        relevance: jnp.ndarray,
+        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the mean average precision with a batch of query/key embeddings.
@@ -333,20 +333,20 @@ class DotProductMeanAveragePrecision(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
 
         # Flatten batch dimensions
         scores = scores.reshape(-1, num_sampled)
-        relevance = relevance.reshape(-1, num_sampled)
+        labels = labels.reshape(-1, num_sampled)
 
         k = self.k if self.k is not None else num_sampled
         effective_k = min(k, num_sampled)
 
         _, top_k_indices = lax.top_k(scores, effective_k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         top_k_binary = (top_k_relevance > 0).astype(jnp.float32)
         cumsum_rel = jnp.cumsum(top_k_binary, axis=-1)
@@ -354,7 +354,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         precision_at_k = cumsum_rel / positions
 
         ap_sum = (precision_at_k * top_k_binary).sum(axis=-1)
-        total_relevant = (relevance > 0).sum(axis=-1)
+        total_relevant = (labels > 0).sum(axis=-1)
 
         ap = jnp.where(total_relevant > 0, ap_sum / total_relevant, 0.0)
 
@@ -390,7 +390,7 @@ class DotProductNDCG(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 3, 2])
         >>> metric = DotProductNDCG()
-        >>> metric.update(query=query, keys=keys, indices=indices, relevance=relevance)
+        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
         >>> metric.compute()  # DCG / IDCG
         Array(0.8174..., dtype=float32)
     """
@@ -411,7 +411,7 @@ class DotProductNDCG(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        relevance: jnp.ndarray,
+        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the NDCG with a batch of query/key embeddings.
@@ -420,27 +420,27 @@ class DotProductNDCG(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            relevance: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
 
         # Flatten batch dimensions
         scores = scores.reshape(-1, num_sampled)
-        relevance = relevance.reshape(-1, num_sampled)
+        labels = labels.reshape(-1, num_sampled)
 
         k = self.k if self.k is not None else num_sampled
         effective_k = min(k, num_sampled)
 
         _, top_k_indices = lax.top_k(scores, effective_k)
-        top_k_relevance = jnp.take_along_axis(relevance, top_k_indices, axis=-1)
+        top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         ranks = jnp.arange(1, effective_k + 1)
         discounts = jnp.log2(ranks + 1)
         dcg = (top_k_relevance / discounts).sum(axis=-1)
 
-        _, ideal_indices = lax.top_k(relevance, effective_k)
-        ideal_relevance = jnp.take_along_axis(relevance, ideal_indices, axis=-1)
+        _, ideal_indices = lax.top_k(labels, effective_k)
+        ideal_relevance = jnp.take_along_axis(labels, ideal_indices, axis=-1)
         idcg = (ideal_relevance / discounts).sum(axis=-1)
 
         ndcg = jnp.where(idcg > 0, dcg / idcg, 0.0)

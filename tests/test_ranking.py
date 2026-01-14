@@ -15,7 +15,7 @@ from flax_metrics import (
 )
 
 
-def ir_measures_score(measure, scores, relevance):
+def ir_measures_score(measure, scores, labels):
     """Compute a metric using ir-measures as reference implementation.
 
     Converts scores/relevance arrays to ir-measures format and computes the metric.
@@ -23,22 +23,22 @@ def ir_measures_score(measure, scores, relevance):
     Args:
         measure: An ir-measures measure (e.g., P@2, nDCG@3, RR, AP).
         scores: Array of shape (..., num_items) with predicted scores.
-        relevance: Array of shape (..., num_items) with relevance labels.
+        labels: Array of shape (..., num_items) with relevance labels.
 
     Returns:
         The computed metric value averaged across all queries.
     """
     scores = np.asarray(scores)
-    relevance = np.asarray(relevance)
+    labels = np.asarray(labels)
 
     if scores.ndim == 1:
         scores = scores[None, :]
-        relevance = relevance[None, :]
+        labels = labels[None, :]
 
     # Flatten batch dimensions to (num_queries, num_items)
     num_items = scores.shape[-1]
     scores = scores.reshape(-1, num_items)
-    relevance = relevance.reshape(-1, num_items)
+    labels = labels.reshape(-1, num_items)
     num_queries = scores.shape[0]
 
     # Convert to ir-measures format
@@ -50,7 +50,7 @@ def ir_measures_score(measure, scores, relevance):
         run[q_id] = {}
         for d_idx in range(num_items):
             d_id = f"d{d_idx}"
-            qrels[q_id][d_id] = int(relevance[q_idx, d_idx])
+            qrels[q_id][d_id] = int(labels[q_idx, d_idx])
             run[q_id][d_id] = float(scores[q_idx, d_idx])
 
     # Compute metric
@@ -98,7 +98,7 @@ def test_metric_matches_ir_measures(
 
     metric = metric_cls(k=k)
     update, compute = update_and_compute(metric, jit)
-    update(scores=scores, relevance=relevance)
+    update(scores=scores, labels=relevance)
     actual = float(compute())
 
     expected = ir_measures_score(ir_measure_fn(k), scores, relevance)
@@ -115,11 +115,11 @@ def test_metric_accumulation(metric_cls, ir_measure_fn, jit):
 
     scores1 = jnp.array([0.9, 0.8, 0.1, 0.2], dtype=jnp.float32)
     relevance1 = jnp.array([1, 1, 0, 0], dtype=jnp.float32)
-    update(scores=scores1, relevance=relevance1)
+    update(scores=scores1, labels=relevance1)
 
     scores2 = jnp.array([0.1, 0.2, 0.9, 0.8], dtype=jnp.float32)
     relevance2 = jnp.array([1, 1, 0, 0], dtype=jnp.float32)
-    update(scores=scores2, relevance=relevance2)
+    update(scores=scores2, labels=relevance2)
 
     actual = float(compute())
 
@@ -139,12 +139,12 @@ def test_metric_reset(metric_cls, ir_measure_fn, jit):
 
     update(
         scores=jnp.array([0.9, 0.8, 0.1, 0.2], dtype=jnp.float32),
-        relevance=jnp.array([1, 1, 0, 0], dtype=jnp.float32),
+        labels=jnp.array([1, 1, 0, 0], dtype=jnp.float32),
     )
     metric.reset()
     update(
         scores=jnp.array([0.1, 0.2, 0.9, 0.8], dtype=jnp.float32),
-        relevance=jnp.array([1, 1, 0, 0], dtype=jnp.float32),
+        labels=jnp.array([1, 1, 0, 0], dtype=jnp.float32),
     )
 
     actual = float(compute())

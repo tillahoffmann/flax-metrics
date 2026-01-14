@@ -95,7 +95,7 @@ def test_dot_product_matches_ir_measures(
         query=jnp.array(query),
         keys=jnp.array(keys),
         indices=jnp.array(indices),
-        relevance=jnp.array(relevance),
+        labels=jnp.array(relevance),
     )
 
     actual = float(dp_compute())
@@ -131,7 +131,7 @@ def test_dot_product_accumulation(dp_cls, ir_measure_fn, jit):
             query=jnp.array(query),
             keys=jnp.array(keys),
             indices=jnp.array(indices),
-            relevance=jnp.array(relevance),
+            labels=jnp.array(relevance),
         )
 
         all_scores.append(scores)
@@ -176,7 +176,7 @@ def test_dot_product_per_query_indices(dp_cls, ir_measure_fn, jit):
         query=jnp.array(query),
         keys=jnp.array(keys),
         indices=jnp.array(indices),
-        relevance=jnp.array(relevance),
+        labels=jnp.array(relevance),
     )
 
     actual = float(dp_compute())
@@ -204,7 +204,7 @@ def test_dot_product_k_larger_than_subset(dp_cls, ir_measure_fn, jit):
         query=jnp.array(query),
         keys=jnp.array(keys),
         indices=jnp.array(indices),
-        relevance=jnp.array(relevance),
+        labels=jnp.array(relevance),
     )
 
     actual = float(dp_compute())
@@ -235,7 +235,7 @@ def test_dot_product_variable_subset_sizes(jit):
         query=jnp.array(query1),
         keys=jnp.array(keys1),
         indices=jnp.array(indices1),
-        relevance=jnp.array(relevance1),
+        labels=jnp.array(relevance1),
     )
 
     # Second update: 2 items (k=3 but only 2 available)
@@ -249,7 +249,7 @@ def test_dot_product_variable_subset_sizes(jit):
         query=jnp.array(query2),
         keys=jnp.array(keys2),
         indices=jnp.array(indices2),
-        relevance=jnp.array(relevance2),
+        labels=jnp.array(relevance2),
     )
 
     result = float(compute())
