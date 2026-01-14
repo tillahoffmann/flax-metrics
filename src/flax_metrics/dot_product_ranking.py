@@ -50,7 +50,7 @@ class DotProductPrecisionAtK(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 0, 1])
         >>> metric = DotProductPrecisionAtK(k=2)
-        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
+        >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
         >>> metric.compute()  # top-2 by score are indices 0 (relevant), 1 (not)
         Array(0.5, dtype=float32)
     """
@@ -69,22 +69,21 @@ class DotProductPrecisionAtK(nnx.Metric):
             jnp.array(0, dtype=jnp.int32)
         )
 
-    def update(
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-        *,
+        labels: jnp.ndarray,
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the precision@k with a batch of query/key embeddings.
 
         Args:
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -132,7 +131,7 @@ class DotProductRecallAtK(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 1, 1])
         >>> metric = DotProductRecallAtK(k=2)
-        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
+        >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
         >>> metric.compute()  # 2 of 3 relevant items in top-2
         Array(0.6666667, dtype=float32)
     """
@@ -147,22 +146,21 @@ class DotProductRecallAtK(nnx.Metric):
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-        *,
+        labels: jnp.ndarray,
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the recall@k with a batch of query/key embeddings.
 
         Args:
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -216,7 +214,7 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([0, 0, 1])
         >>> metric = DotProductMeanReciprocalRank()
-        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
+        >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
         >>> metric.compute()  # first relevant at rank 3
         Array(0.33333334, dtype=float32)
     """
@@ -231,22 +229,21 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-        *,
+        labels: jnp.ndarray,
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the mean reciprocal rank with a batch of query/key embeddings.
 
         Args:
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -303,7 +300,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 0, 1])
         >>> metric = DotProductMeanAveragePrecision()
-        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
+        >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
         >>> metric.compute()  # (1/1 + 2/3) / 2
         Array(0.8333334, dtype=float32)
     """
@@ -318,22 +315,21 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-        *,
+        labels: jnp.ndarray,
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the mean average precision with a batch of query/key embeddings.
 
         Args:
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
@@ -390,7 +386,7 @@ class DotProductNDCG(nnx.Metric):
         >>> indices = jnp.array([0, 1, 2])
         >>> relevance = jnp.array([1, 3, 2])
         >>> metric = DotProductNDCG()
-        >>> metric.update(query=query, keys=keys, indices=indices, labels=relevance)
+        >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
         >>> metric.compute()  # DCG / IDCG
         Array(0.8174..., dtype=float32)
     """
@@ -405,22 +401,21 @@ class DotProductNDCG(nnx.Metric):
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-        *,
+        labels: jnp.ndarray,
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
-        labels: jnp.ndarray,
         **_,
     ) -> None:
         """Update the NDCG with a batch of query/key embeddings.
 
         Args:
+            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
-            labels: Relevance labels for indexed items, shape :code:`(*batch_shape, num_sampled)`.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
         num_sampled = scores.shape[-1]
