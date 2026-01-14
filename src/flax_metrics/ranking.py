@@ -22,7 +22,7 @@ class PrecisionAtK(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  0,   1,   1,   0])
         >>> metric = PrecisionAtK(k=2)
-        >>> metric.update(scores=scores, labels=relevance)
+        >>> metric.update(labels=relevance, scores=scores)
         >>> metric.compute()  # top-2 are indices 1, 2 both relevant
         Array(1., dtype=float32)
     """
@@ -37,12 +37,12 @@ class PrecisionAtK(nnx.Metric):
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Update the precision@k with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape :code:`(..., num_items)`.
-            labels: Relevance labels, same shape as scores.
+            labels: Relevance labels, shape :code:`(..., num_items)`.
+            scores: Scores for each item, same shape as labels.
         """
         # Flatten batch dimensions to count queries
         num_queries = scores.size // scores.shape[-1]
@@ -81,7 +81,7 @@ class RecallAtK(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  1,   1,   1,   0])
         >>> metric = RecallAtK(k=2)
-        >>> metric.update(scores=scores, labels=relevance)
+        >>> metric.update(labels=relevance, scores=scores)
         >>> metric.compute()  # 2 of 3 relevant items in top-2
         Array(0.6666667, dtype=float32)
     """
@@ -96,12 +96,12 @@ class RecallAtK(nnx.Metric):
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Update the recall@k with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape :code:`(..., num_items)`.
-            labels: Relevance labels, same shape as scores.
+            labels: Relevance labels, shape :code:`(..., num_items)`.
+            scores: Scores for each item, same shape as labels.
         """
         # Flatten batch dimensions to (num_queries, num_items)
         original_shape = scores.shape
@@ -150,7 +150,7 @@ class MeanReciprocalRank(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  1,   0,   0,   1])
         >>> metric = MeanReciprocalRank()
-        >>> metric.update(scores=scores, labels=relevance)
+        >>> metric.update(labels=relevance, scores=scores)
         >>> metric.compute()  # first relevant at rank 3
         Array(0.33333334, dtype=float32)
     """
@@ -165,12 +165,12 @@ class MeanReciprocalRank(nnx.Metric):
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Update the mean reciprocal rank with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape :code:`(..., num_items)`.
-            labels: Relevance labels, same shape as scores.
+            labels: Relevance labels, shape :code:`(..., num_items)`.
+            scores: Scores for each item, same shape as labels.
         """
         # Flatten batch dimensions
         original_shape = scores.shape
@@ -221,7 +221,7 @@ class MeanAveragePrecision(nnx.Metric):
         >>> scores    = jnp.array([0.4, 0.3, 0.2, 0.1])
         >>> relevance = jnp.array([  1,   1,   0,   1])
         >>> metric = MeanAveragePrecision()
-        >>> metric.update(scores=scores, labels=relevance)
+        >>> metric.update(labels=relevance, scores=scores)
         >>> metric.compute()  # (1/1 + 2/2 + 3/4) / 3
         Array(0.9166667, dtype=float32)
     """
@@ -236,12 +236,12 @@ class MeanAveragePrecision(nnx.Metric):
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Update the mean average precision with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape :code:`(..., num_items)`.
-            labels: Relevance labels, same shape as scores.
+            labels: Relevance labels, shape :code:`(..., num_items)`.
+            scores: Scores for each item, same shape as labels.
         """
         # Flatten batch dimensions
         original_shape = scores.shape
@@ -295,7 +295,7 @@ class NDCG(nnx.Metric):
         >>> scores    = jnp.array([0.1, 0.4, 0.3, 0.2])
         >>> relevance = jnp.array([  3,   2,   1,   0])
         >>> metric = NDCG(k=3)
-        >>> metric.update(scores=scores, labels=relevance)
+        >>> metric.update(labels=relevance, scores=scores)
         >>> metric.compute()  # DCG / IDCG
         Array(0.5525..., dtype=float32)
     """
@@ -310,12 +310,12 @@ class NDCG(nnx.Metric):
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, *, scores: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Update the NDCG with a batch of scored items.
 
         Args:
-            scores: Scores for each item, shape :code:`(..., num_items)`.
-            labels: Relevance labels (can be graded), same shape as scores.
+            labels: Relevance labels (can be graded), shape :code:`(..., num_items)`.
+            scores: Scores for each item, same shape as labels.
         """
         # Flatten all batch dimensions
         original_shape = scores.shape

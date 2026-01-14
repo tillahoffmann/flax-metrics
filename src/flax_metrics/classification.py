@@ -23,7 +23,7 @@ class Recall(nnx.metrics.Average):
         >>> labels = jnp.array([ 0,  0,  0,  1,  1,  1,  1])
         >>> logits = jnp.array([-1, -1,  1,  1,  1, -1, -1])
         >>> metric = Recall()
-        >>> metric.update(logits=logits, labels=labels)
+        >>> metric.update(labels=labels, logits=logits)
         >>> metric.compute()
         Array(0.5, dtype=float32)
     """
@@ -32,12 +32,14 @@ class Recall(nnx.metrics.Average):
         super().__init__()
         self.threshold = threshold
 
-    def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+    ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
-            logits: Predicted logits.
             labels: Ground truth binary labels.
+            logits: Predicted logits.
         """
         # The denominator is the number of positives.
         self.count[...] += labels.sum()
@@ -63,7 +65,7 @@ class Precision(nnx.metrics.Average):
         >>> labels = jnp.array([ 0,  0,  0,  1,  1,  1,  1])
         >>> logits = jnp.array([-1, -1,  1,  1,  1, -1, -1])
         >>> metric = Precision()
-        >>> metric.update(logits=logits, labels=labels)
+        >>> metric.update(labels=labels, logits=logits)
         >>> metric.compute()
         Array(0.6666667, dtype=float32)
     """
@@ -72,12 +74,14 @@ class Precision(nnx.metrics.Average):
         super().__init__()
         self.threshold = threshold
 
-    def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+    ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
-            logits: Predicted logits.
             labels: Ground truth binary labels.
+            logits: Predicted logits.
         """
         predictions = logits > self.threshold
         # The denominator is the number of identified positives.
@@ -104,7 +108,7 @@ class F1Score(nnx.Metric):
         >>> labels = jnp.array([ 0,  0,  0,  1,  1,  1,  1])
         >>> logits = jnp.array([-1, -1,  1,  1,  1, -1, -1])
         >>> metric = F1Score()
-        >>> metric.update(logits=logits, labels=labels)
+        >>> metric.update(labels=labels, logits=logits)
         >>> metric.compute()
         Array(0.5714286, dtype=float32)
     """
@@ -125,12 +129,14 @@ class F1Score(nnx.Metric):
             jnp.array(0, dtype=jnp.int32)
         )
 
-    def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+    ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
-            logits: Predicted logits.
             labels: Ground truth binary labels.
+            logits: Predicted logits.
         """
         predictions = logits > self.threshold
         self.true_positives[...] += (predictions * labels).sum()
@@ -171,7 +177,7 @@ class LogProb(nnx.metrics.Average):
         >>> labels = jnp.array([[ 0,  0,  0,  1,  1,  1,  1]])
         >>> logits = jnp.array([[-1, -1,  1,  1,  1, -1, -1]])
         >>> metric = LogProb()
-        >>> metric.update(logits=logits, labels=labels)
+        >>> metric.update(labels=labels, logits=logits)
         >>> metric.compute()
         Array(-5.879968, dtype=float32)
     """
@@ -179,16 +185,18 @@ class LogProb(nnx.metrics.Average):
     def __init__(self) -> None:
         super().__init__()
 
-    def update(self, *, logits: jnp.ndarray, labels: jnp.ndarray, **_) -> None:
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+    ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
+            labels: Ground truth binary labels or multinomial counts with shape
+                :code:`(..., num_classes)`, where :code:`...` denotes the batch shape.
+                For binary classification, use labels with shape :code:`(..., 1)`.
             logits: Predicted logits with shape :code:`(..., num_classes)`, where
                 :code:`...` denotes the batch shape. For binary classification, use
                 logits with shape :code:`(..., 1)`.
-            labels: Ground truth binary labels or multinomial counts with shape
-                :code:`(..., num_classes)`, where :code:`...` denotes the batch shape.
-                For binary classification, use logits with shape :code:`(..., 1)`.
         """
         if logits.shape[-1] == 1:
             # Binary classification with likelihood based on (although using softplus)
