@@ -2,7 +2,7 @@ import ir_measures
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from conftest import update_and_compute
+from conftest import update_and_compute, validate_masking
 from ir_measures import AP, RR, P, R, nDCG
 from numpy.testing import assert_almost_equal
 
@@ -90,13 +90,19 @@ METRICS = [
     ],
 )
 def test_metric_matches_ir_measures(
-    metric_cls, ir_measure_fn, scores, relevance, k, jit
+    metric_cls, ir_measure_fn, scores, relevance, k, jit, masked
 ):
     """Verify our metrics match ir-measures."""
     scores = jnp.array(scores, dtype=jnp.float32)
     relevance = jnp.array(relevance, dtype=jnp.float32)
 
     metric = metric_cls(k=k)
+    if masked:
+        validate_masking(
+            metric, (), {"scores": scores, "labels": relevance}, jit=jit, event_dim=1
+        )
+        return
+
     update, compute = update_and_compute(metric, jit)
     update(scores=scores, labels=relevance)
     actual = float(compute())
