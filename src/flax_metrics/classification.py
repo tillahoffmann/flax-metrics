@@ -3,13 +3,17 @@ metrics operate on logits and binary or multinomial labels, applying a threshold
 convert logits to point estimates where required.
 """
 
+from typing import Self
+
 from flax import nnx
 from jax import numpy as jnp
 from jax.nn import logsumexp, softplus
 from jax.scipy.special import gammaln
 
+from .base import Average, BaseMetric
 
-class Recall(nnx.metrics.Average):
+
+class Recall(Average):
     """Recall metric, the fraction of actual positives that were correctly identified.
 
     Args:
@@ -24,6 +28,7 @@ class Recall(nnx.metrics.Average):
         >>> logits = jnp.array([-1, -1,  1,  1,  1, -1, -1])
         >>> metric = Recall()
         >>> metric.update(labels=labels, logits=logits)
+        Recall(...)
         >>> metric.compute()
         Array(0.5, dtype=float32)
     """
@@ -32,14 +37,14 @@ class Recall(nnx.metrics.Average):
         super().__init__()
         self.threshold = threshold
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         logits: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the metric with a batch of predictions.
 
         Args:
@@ -53,13 +58,14 @@ class Recall(nnx.metrics.Average):
         self.count[...] += (labels * mask).sum()
         # The numerator is the number of true positives.
         self.total[...] += ((logits > self.threshold) * labels * mask).sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall."""
         return super().compute()
 
 
-class Precision(nnx.metrics.Average):
+class Precision(Average):
     """Precision metric, the fraction of identified positives that are true positives.
 
     Args:
@@ -74,6 +80,7 @@ class Precision(nnx.metrics.Average):
         >>> logits = jnp.array([-1, -1,  1,  1,  1, -1, -1])
         >>> metric = Precision()
         >>> metric.update(labels=labels, logits=logits)
+        Precision(...)
         >>> metric.compute()
         Array(0.6666667, dtype=float32)
     """
@@ -82,14 +89,14 @@ class Precision(nnx.metrics.Average):
         super().__init__()
         self.threshold = threshold
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         logits: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the metric with a batch of predictions.
 
         Args:
@@ -104,13 +111,14 @@ class Precision(nnx.metrics.Average):
         self.count[...] += (predictions * mask).sum()
         # The numerator is the number of those that are actually positives.
         self.total[...] += (predictions * labels * mask).sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision."""
         return super().compute()
 
 
-class F1Score(nnx.Metric):
+class F1Score(BaseMetric):
     """F1 score, the harmonic mean of precision and recall.
 
     Args:
@@ -125,34 +133,35 @@ class F1Score(nnx.Metric):
         >>> logits = jnp.array([-1, -1,  1,  1,  1, -1, -1])
         >>> metric = F1Score()
         >>> metric.update(labels=labels, logits=logits)
+        F1Score(...)
         >>> metric.compute()
         Array(0.5714286, dtype=float32)
     """
 
     def __init__(self, threshold: float = 0.0) -> None:
         self.threshold = threshold
-        self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
         self.predicted_positives = nnx.metrics.MetricState(
-            jnp.array(0, dtype=jnp.int32)
+            jnp.array(0, dtype=jnp.float32)
         )
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
-        self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
         self.predicted_positives = nnx.metrics.MetricState(
-            jnp.array(0, dtype=jnp.int32)
+            jnp.array(0, dtype=jnp.float32)
         )
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         logits: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the metric with a batch of predictions.
 
         Args:
@@ -166,6 +175,7 @@ class F1Score(nnx.Metric):
         self.true_positives[...] += (predictions * labels * mask).sum()
         self.actual_positives[...] += (labels * mask).sum()
         self.predicted_positives[...] += (predictions * mask).sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the F1 score."""
@@ -177,7 +187,7 @@ class F1Score(nnx.Metric):
         )
 
 
-class LogProb(nnx.metrics.Average):
+class LogProb(Average):
     """Log probability score, the mean likelihood of an outcome.
 
     The metric supports three modes:
@@ -202,6 +212,7 @@ class LogProb(nnx.metrics.Average):
         >>> logits = jnp.array([[-1, -1,  1,  1,  1, -1, -1]])
         >>> metric = LogProb()
         >>> metric.update(labels=labels, logits=logits)
+        LogProb(...)
         >>> metric.compute()
         Array(-5.879968, dtype=float32)
     """
@@ -209,14 +220,14 @@ class LogProb(nnx.metrics.Average):
     def __init__(self) -> None:
         super().__init__()
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         logits: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the metric with a batch of predictions.
 
         Args:
@@ -248,6 +259,7 @@ class LogProb(nnx.metrics.Average):
             mask = jnp.ones_like(log_prob)
         self.total[...] += (log_prob * mask).sum()
         self.count[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean log probability score."""

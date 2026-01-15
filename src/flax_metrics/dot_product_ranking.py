@@ -4,9 +4,13 @@ embedding-based recommendation systems where computing all pairwise scores is
 prohibitive, so only a sampled subset of candidates is evaluated.
 """
 
+from typing import Self
+
 from flax import nnx
 from jax import lax
 from jax import numpy as jnp
+
+from .base import BaseMetric
 
 
 def _compute_dot_product_scores(
@@ -26,7 +30,7 @@ def _compute_dot_product_scores(
     return jnp.einsum("...f,...nf->...n", query, subset_keys)
 
 
-class DotProductPrecisionAtK(nnx.Metric):
+class DotProductPrecisionAtK(BaseMetric):
     """Precision@K using dot product scores between query and key embeddings.
 
     .. note::
@@ -51,25 +55,30 @@ class DotProductPrecisionAtK(nnx.Metric):
         >>> relevance = jnp.array([1, 0, 1])
         >>> metric = DotProductPrecisionAtK(k=2)
         >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
+        DotProductPrecisionAtK(...)
         >>> metric.compute()  # top-2 by score are indices 0 (relevant), 1 (not)
         Array(0.5, dtype=float32)
     """
 
     def __init__(self, k: int) -> None:
         self.k = k
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.relevant_in_top_k = nnx.metrics.MetricState(
+            jnp.array(0, dtype=jnp.float32)
+        )
         self.total_items_considered = nnx.metrics.MetricState(
-            jnp.array(0, dtype=jnp.int32)
+            jnp.array(0, dtype=jnp.float32)
         )
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.relevant_in_top_k = nnx.metrics.MetricState(
+            jnp.array(0, dtype=jnp.float32)
+        )
         self.total_items_considered = nnx.metrics.MetricState(
-            jnp.array(0, dtype=jnp.int32)
+            jnp.array(0, dtype=jnp.float32)
         )
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         query: jnp.ndarray,
@@ -78,7 +87,7 @@ class DotProductPrecisionAtK(nnx.Metric):
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the precision@k with a batch of query/key embeddings.
 
         Args:
@@ -103,13 +112,14 @@ class DotProductPrecisionAtK(nnx.Metric):
         # Apply mask by broadcasting to (..., k)
         self.relevant_in_top_k[...] += ((top_k_relevance > 0) * mask[..., None]).sum()
         self.total_items_considered[...] += mask.sum() * self.k
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision@k."""
         return self.relevant_in_top_k[...] / self.total_items_considered[...]
 
 
-class DotProductRecallAtK(nnx.Metric):
+class DotProductRecallAtK(BaseMetric):
     """Recall@K using dot product scores between query and key embeddings.
 
     Computes mean recall over all queries (macro-average).
@@ -136,6 +146,7 @@ class DotProductRecallAtK(nnx.Metric):
         >>> relevance = jnp.array([1, 1, 1])
         >>> metric = DotProductRecallAtK(k=2)
         >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
+        DotProductRecallAtK(...)
         >>> metric.compute()  # 2 of 3 relevant items in top-2
         Array(0.6666667, dtype=float32)
     """
@@ -143,14 +154,14 @@ class DotProductRecallAtK(nnx.Metric):
     def __init__(self, k: int) -> None:
         self.k = k
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         query: jnp.ndarray,
@@ -159,7 +170,7 @@ class DotProductRecallAtK(nnx.Metric):
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the recall@k with a batch of query/key embeddings.
 
         Args:
@@ -195,13 +206,14 @@ class DotProductRecallAtK(nnx.Metric):
 
         self.total_recall[...] += (recall_per_query * mask).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
         return self.total_recall[...] / self.num_queries[...]
 
 
-class DotProductMeanReciprocalRank(nnx.Metric):
+class DotProductMeanReciprocalRank(BaseMetric):
     """Mean Reciprocal Rank using dot product scores between query and key embeddings.
 
     .. note::
@@ -226,6 +238,7 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         >>> relevance = jnp.array([0, 0, 1])
         >>> metric = DotProductMeanReciprocalRank()
         >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
+        DotProductMeanReciprocalRank(...)
         >>> metric.compute()  # first relevant at rank 3
         Array(0.33333334, dtype=float32)
     """
@@ -233,14 +246,14 @@ class DotProductMeanReciprocalRank(nnx.Metric):
     def __init__(self, k: int | None = None) -> None:
         self.k = k
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         query: jnp.ndarray,
@@ -249,7 +262,7 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the mean reciprocal rank with a batch of query/key embeddings.
 
         Args:
@@ -288,13 +301,14 @@ class DotProductMeanReciprocalRank(nnx.Metric):
 
         self.total_rr[...] += (reciprocal_rank * mask).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean reciprocal rank."""
         return self.total_rr[...] / self.num_queries[...]
 
 
-class DotProductMeanAveragePrecision(nnx.Metric):
+class DotProductMeanAveragePrecision(BaseMetric):
     """Mean Average Precision using dot product scores between query and key embeddings.
 
     .. note::
@@ -319,6 +333,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         >>> relevance = jnp.array([1, 0, 1])
         >>> metric = DotProductMeanAveragePrecision()
         >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
+        DotProductMeanAveragePrecision(...)
         >>> metric.compute()  # (1/1 + 2/3) / 2
         Array(0.8333334, dtype=float32)
     """
@@ -326,14 +341,14 @@ class DotProductMeanAveragePrecision(nnx.Metric):
     def __init__(self, k: int | None = None) -> None:
         self.k = k
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         query: jnp.ndarray,
@@ -342,7 +357,7 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the mean average precision with a batch of query/key embeddings.
 
         Args:
@@ -381,13 +396,14 @@ class DotProductMeanAveragePrecision(nnx.Metric):
 
         self.total_ap[...] += (ap * mask).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean average precision."""
         return self.total_ap[...] / self.num_queries[...]
 
 
-class DotProductNDCG(nnx.Metric):
+class DotProductNDCG(BaseMetric):
     """Normalized Discounted Cumulative Gain using dot product scores between query and key embeddings.
 
     .. note::
@@ -412,6 +428,7 @@ class DotProductNDCG(nnx.Metric):
         >>> relevance = jnp.array([1, 3, 2])
         >>> metric = DotProductNDCG()
         >>> metric.update(labels=relevance, query=query, keys=keys, indices=indices)
+        DotProductNDCG(...)
         >>> metric.compute()  # DCG / IDCG
         Array(0.8174..., dtype=float32)
     """
@@ -419,14 +436,14 @@ class DotProductNDCG(nnx.Metric):
     def __init__(self, k: int | None = None) -> None:
         self.k = k
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         query: jnp.ndarray,
@@ -435,7 +452,7 @@ class DotProductNDCG(nnx.Metric):
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the NDCG with a batch of query/key embeddings.
 
         Args:
@@ -474,6 +491,7 @@ class DotProductNDCG(nnx.Metric):
 
         self.total_ndcg[...] += (ndcg * mask).sum()
         self.count[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the NDCG."""

@@ -11,28 +11,38 @@ Flax NXX implementation of common metrics. See the [documentation](https://flax-
 
 >>> metric = Recall()
 >>> metric.update(labels=labels, logits=logits)
+Recall(...)
 >>> metric.compute()
 Array(0.333..., dtype=float32)
 
->>> metric = Precision()
->>> metric.update(labels=labels, logits=logits)
->>> metric.compute()
-Array(0.5, dtype=float32)
-
 ```
 
-`jax.jit` requires re-compilation for arrays of different shapes, making evaluation on subsets challenging—we cannot index arrays with a mask. Flax Metrics supports masking through the keyword-only argument `mask`.
+## Masking
+
+`jax.jit` requires re-compilation for arrays of different shapes, making evaluation on subsets challenging—we cannot index arrays with a mask. Flax Metrics supports masking through the keyword-only argument `mask`. The example below illustrates that passing `mask` is equivalent to indexing the input with a binary mask.
 
 ```python
 >>> mask = jnp.asarray([True, True, True, True, False, True])
 >>> metric = Recall()
 >>> metric.update(labels=labels, logits=logits, mask=mask)
+Recall(...)
 >>> metric.compute()
 Array(0.5, dtype=float32)
 
 >>> metric.reset()
 >>> metric.update(labels=labels[mask], logits=logits[mask])
+Recall(...)
 >>> metric.compute()
 Array(0.5, dtype=float32)
+
+```
+
+## Chaining
+
+Metric creation, updates, and computation can be combined into one expression by chaining operations.
+
+```python
+>>> Recall().update(labels=labels, logits=logits).compute()
+Array(0.333..., dtype=float32)
 
 ```
