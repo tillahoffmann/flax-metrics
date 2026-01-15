@@ -59,7 +59,7 @@ class Average(BaseMetric):
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def update(
-        self, values: jnp.ndarray, *, mask: jnp.ndarray | None = None, **_
+        self, values: jnp.ndarray, *_args, mask: jnp.ndarray | None = None, **_kwargs
     ) -> Self:
         if mask is None:
             mask = jnp.ones_like(values)

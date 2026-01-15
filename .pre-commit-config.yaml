@@ -22,7 +22,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: uv run pytest
+        entry: uv run pytest -q
         language: system
         files: ^.*\.py$
         pass_filenames: false

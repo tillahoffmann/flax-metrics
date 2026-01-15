@@ -3,12 +3,16 @@ precomputed scores. These metrics compare the ranking against relevance labels t
 measure retrieval quality.
 """
 
+from typing import Self
+
 from flax import nnx
 from jax import lax
 from jax import numpy as jnp
 
+from .base import BaseMetric
 
-class PrecisionAtK(nnx.Metric):
+
+class PrecisionAtK(BaseMetric):
     """Precision@K, the fraction of top-k items that are relevant.
 
     Args:
@@ -23,28 +27,33 @@ class PrecisionAtK(nnx.Metric):
         >>> relevance = jnp.array([  0,   1,   1,   0])
         >>> metric = PrecisionAtK(k=2)
         >>> metric.update(labels=relevance, scores=scores)
+        PrecisionAtK(...)
         >>> metric.compute()  # top-2 are indices 1, 2 both relevant
         Array(1., dtype=float32)
     """
 
     def __init__(self, k: int) -> None:
         self.k = k
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.relevant_in_top_k = nnx.metrics.MetricState(
+            jnp.array(0, dtype=jnp.float32)
+        )
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
-        self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.relevant_in_top_k = nnx.metrics.MetricState(
+            jnp.array(0, dtype=jnp.float32)
+        )
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         scores: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the precision@k with a batch of scored items.
 
         Args:
@@ -68,13 +77,14 @@ class PrecisionAtK(nnx.Metric):
         # Apply mask by broadcasting to (..., k)
         self.relevant_in_top_k[...] += ((top_k_relevance > 0) * mask[..., None]).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision@k."""
         return self.relevant_in_top_k[...] / (self.num_queries[...] * self.k)
 
 
-class RecallAtK(nnx.Metric):
+class RecallAtK(BaseMetric):
     """Recall@K, the fraction of relevant items that appear in the top-k ranked results.
 
     Computes mean recall over all queries (macro-average).
@@ -91,6 +101,7 @@ class RecallAtK(nnx.Metric):
         >>> relevance = jnp.array([  1,   1,   1,   0])
         >>> metric = RecallAtK(k=2)
         >>> metric.update(labels=relevance, scores=scores)
+        RecallAtK(...)
         >>> metric.compute()  # 2 of 3 relevant items in top-2
         Array(0.6666667, dtype=float32)
     """
@@ -98,21 +109,21 @@ class RecallAtK(nnx.Metric):
     def __init__(self, k: int) -> None:
         self.k = k
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         scores: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the recall@k with a batch of scored items.
 
         Args:
@@ -149,13 +160,14 @@ class RecallAtK(nnx.Metric):
 
         self.total_recall[...] += (recall_per_query * mask).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
         return self.total_recall[...] / self.num_queries[...]
 
 
-class MeanReciprocalRank(nnx.Metric):
+class MeanReciprocalRank(BaseMetric):
     """Mean Reciprocal Rank.
 
     The average of reciprocal ranks of the first relevant item for each query.
@@ -172,6 +184,7 @@ class MeanReciprocalRank(nnx.Metric):
         >>> relevance = jnp.array([  1,   0,   0,   1])
         >>> metric = MeanReciprocalRank()
         >>> metric.update(labels=relevance, scores=scores)
+        MeanReciprocalRank(...)
         >>> metric.compute()  # first relevant at rank 3
         Array(0.33333334, dtype=float32)
     """
@@ -179,21 +192,21 @@ class MeanReciprocalRank(nnx.Metric):
     def __init__(self, k: int | None = None) -> None:
         self.k = k
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         scores: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the mean reciprocal rank with a batch of scored items.
 
         Args:
@@ -231,13 +244,14 @@ class MeanReciprocalRank(nnx.Metric):
 
         self.total_rr[...] += (reciprocal_rank * mask).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean reciprocal rank."""
         return self.total_rr[...] / self.num_queries[...]
 
 
-class MeanAveragePrecision(nnx.Metric):
+class MeanAveragePrecision(BaseMetric):
     """Mean Average Precision.
 
     The mean of average precision scores across queries, where average precision
@@ -255,6 +269,7 @@ class MeanAveragePrecision(nnx.Metric):
         >>> relevance = jnp.array([  1,   1,   0,   1])
         >>> metric = MeanAveragePrecision()
         >>> metric.update(labels=relevance, scores=scores)
+        MeanAveragePrecision(...)
         >>> metric.compute()  # (1/1 + 2/2 + 3/4) / 3
         Array(0.9166667, dtype=float32)
     """
@@ -262,21 +277,21 @@ class MeanAveragePrecision(nnx.Metric):
     def __init__(self, k: int | None = None) -> None:
         self.k = k
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         scores: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the mean average precision with a batch of scored items.
 
         Args:
@@ -320,13 +335,14 @@ class MeanAveragePrecision(nnx.Metric):
 
         self.total_ap[...] += (ap * mask).sum()
         self.num_queries[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean average precision."""
         return self.total_ap[...] / self.num_queries[...]
 
 
-class NDCG(nnx.Metric):
+class NDCG(BaseMetric):
     """Normalized Discounted Cumulative Gain.
 
     Args:
@@ -341,6 +357,7 @@ class NDCG(nnx.Metric):
         >>> relevance = jnp.array([  3,   2,   1,   0])
         >>> metric = NDCG(k=3)
         >>> metric.update(labels=relevance, scores=scores)
+        NDCG(...)
         >>> metric.compute()  # DCG / IDCG
         Array(0.5525..., dtype=float32)
     """
@@ -348,21 +365,21 @@ class NDCG(nnx.Metric):
     def __init__(self, k: int | None = None) -> None:
         self.k = k
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
     def reset(self) -> None:
         """Reset the metric state in-place."""
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
-        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
+        self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(
         self,
         labels: jnp.ndarray,
         scores: jnp.ndarray,
         *,
         mask: jnp.ndarray | None = None,
         **_,
-    ) -> None:
+    ) -> Self:
         """Update the NDCG with a batch of scored items.
 
         Args:
@@ -401,6 +418,7 @@ class NDCG(nnx.Metric):
 
         self.total_ndcg[...] += (ndcg * mask).sum()
         self.count[...] += mask.sum()
+        return self
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the NDCG."""
