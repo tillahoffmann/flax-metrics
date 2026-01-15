@@ -33,18 +33,26 @@ class Recall(nnx.metrics.Average):
         self.threshold = threshold
 
     def update(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+        self,
+        labels: jnp.ndarray,
+        logits: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
     ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
             labels: Ground truth binary labels.
             logits: Predicted logits.
+            mask: Binary mask indicating which elements to include.
         """
+        if mask is None:
+            mask = jnp.ones_like(labels)
         # The denominator is the number of positives.
-        self.count[...] += labels.sum()
+        self.count[...] += (labels * mask).sum()
         # The numerator is the number of true positives.
-        self.total[...] += ((logits > self.threshold) * labels).sum()
+        self.total[...] += ((logits > self.threshold) * labels * mask).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall."""
@@ -75,19 +83,27 @@ class Precision(nnx.metrics.Average):
         self.threshold = threshold
 
     def update(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+        self,
+        labels: jnp.ndarray,
+        logits: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
     ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
             labels: Ground truth binary labels.
             logits: Predicted logits.
+            mask: Binary mask indicating which elements to include.
         """
+        if mask is None:
+            mask = jnp.ones_like(labels)
         predictions = logits > self.threshold
         # The denominator is the number of identified positives.
-        self.count[...] += predictions.sum()
+        self.count[...] += (predictions * mask).sum()
         # The numerator is the number of those that are actually positives.
-        self.total[...] += (predictions * labels).sum()
+        self.total[...] += (predictions * labels * mask).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision."""
@@ -130,18 +146,26 @@ class F1Score(nnx.Metric):
         )
 
     def update(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+        self,
+        labels: jnp.ndarray,
+        logits: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
     ) -> None:
         """Update the metric with a batch of predictions.
 
         Args:
             labels: Ground truth binary labels.
             logits: Predicted logits.
+            mask: Binary mask indicating which elements to include.
         """
+        if mask is None:
+            mask = jnp.ones_like(labels)
         predictions = logits > self.threshold
-        self.true_positives[...] += (predictions * labels).sum()
-        self.actual_positives[...] += labels.sum()
-        self.predicted_positives[...] += predictions.sum()
+        self.true_positives[...] += (predictions * labels * mask).sum()
+        self.actual_positives[...] += (labels * mask).sum()
+        self.predicted_positives[...] += (predictions * mask).sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the F1 score."""
@@ -186,7 +210,12 @@ class LogProb(nnx.metrics.Average):
         super().__init__()
 
     def update(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, labels: jnp.ndarray, logits: jnp.ndarray, **_
+        self,
+        labels: jnp.ndarray,
+        logits: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
     ) -> None:
         """Update the metric with a batch of predictions.
 
@@ -197,6 +226,7 @@ class LogProb(nnx.metrics.Average):
             logits: Predicted logits with shape :code:`(..., num_classes)`, where
                 :code:`...` denotes the batch shape. For binary classification, use
                 logits with shape :code:`(..., 1)`.
+            mask: Binary mask indicating which elements to include.
         """
         if logits.shape[-1] == 1:
             # Binary classification with likelihood based on (although using softplus)
@@ -214,7 +244,10 @@ class LogProb(nnx.metrics.Average):
                 )
                 - norm
             )
-        super().update(values=log_prob)
+        if mask is None:
+            mask = jnp.ones_like(log_prob)
+        self.total[...] += (log_prob * mask).sum()
+        self.count[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean log probability score."""
