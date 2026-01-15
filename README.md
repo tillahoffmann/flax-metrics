@@ -20,3 +20,19 @@ Array(0.333..., dtype=float32)
 Array(0.5, dtype=float32)
 
 ```
+
+`jax.jit` requires re-compilation for arrays of different shapes, making evaluation on subsets challenging—we cannot index arrays with a mask. Flax Metrics supports masking through the keyword-only argument `mask`.
+
+```python
+>>> mask = jnp.asarray([True, True, True, True, False, True])
+>>> metric = Recall()
+>>> metric.update(labels=labels, logits=logits, mask=mask)
+>>> metric.compute()
+Array(0.5, dtype=float32)
+
+>>> metric.reset()
+>>> metric.update(labels=labels[mask], logits=logits[mask])
+>>> metric.compute()
+Array(0.5, dtype=float32)
+
+```

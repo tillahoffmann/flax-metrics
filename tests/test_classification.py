@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from conftest import update_and_compute
+from conftest import update_and_compute, validate_masking
 from jax.scipy.special import expit, softmax
 from numpy.testing import assert_almost_equal
 from sklearn.metrics import f1_score, log_loss, precision_score, recall_score
@@ -42,13 +42,19 @@ METRICS = [
     ],
 )
 def test_binary_metric_matches_sklearn(
-    metric_cls, sklearn_fn, logits, labels, threshold, jit
+    metric_cls, sklearn_fn, logits, labels, threshold, jit, masked
 ):
     """Verify our metrics match sklearn."""
     logits = jnp.array(logits)
     labels = jnp.array(labels)
 
     metric = metric_cls(threshold=threshold)
+    if masked:
+        validate_masking(
+            metric, (), {"logits": logits, "labels": labels}, jit=jit, event_dim=0
+        )
+        return
+
     update, compute = update_and_compute(metric, jit)
     update(logits=logits, labels=labels)
     actual = float(compute())
@@ -80,12 +86,18 @@ def test_binary_metric_matches_sklearn(
     ],
 )
 def test_multinomial_metric_matches_sklearn(
-    metric_cls, sklearn_fn, logits, labels, jit
+    metric_cls, sklearn_fn, logits, labels, jit, masked
 ):
     logits = jnp.asarray(logits)
     labels = jnp.asarray(labels)
 
     metric = metric_cls()
+    if masked:
+        validate_masking(
+            metric, (), {"logits": logits, "labels": labels}, jit=jit, event_dim=1
+        )
+        return
+
     update, compute = update_and_compute(metric, jit)
     update(logits=logits, labels=labels)
     actual = float(compute())

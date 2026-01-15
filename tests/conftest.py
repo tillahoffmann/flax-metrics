@@ -1,14 +1,25 @@
 """Pytest configuration and fixtures for flax-metrics tests."""
 
 import functools
+import math
+from typing import Sequence
 
 import pytest
 from flax import nnx
+from jax import numpy as jnp
+from jax import random
+from numpy.testing import assert_almost_equal
 
 
 @pytest.fixture(params=[False, True], ids=["eager", "jit"])
 def jit(request):
     """Fixture that runs each test twice: once eager, once JIT-compiled."""
+    return request.param
+
+
+@pytest.fixture(params=[False, True], ids=["unmasked", "masked"])
+def masked(request):
+    """Fixture that runs each test twice: once with masked entries, once without."""
     return request.param
 
 
@@ -29,8 +40,8 @@ def update_and_compute(metric, jit):
     if jit:
 
         @nnx.jit
-        def jitted_update(m, **kwargs):
-            m.update(**kwargs)
+        def jitted_update(m, *args, **kwargs):
+            m.update(*args, **kwargs)
 
         @nnx.jit
         def jitted_compute(m):
@@ -40,3 +51,67 @@ def update_and_compute(metric, jit):
             jitted_compute, metric
         )
     return metric.update, metric.compute
+
+
+def validate_masking(
+    metric,
+    args: Sequence,
+    kwargs: dict,
+    *,
+    jit: bool,
+    event_dim: int,
+    static_kwargs: dict | None = None,
+) -> None:
+    """Validate that masking produces the same result as filtering inputs.
+
+    Args:
+        metric: The metric to test.
+        args: Positional arguments to pass to update (will be masked).
+        kwargs: Keyword arguments to pass to update (will be masked).
+        jit: Whether to JIT-compile the update and compute functions.
+        event_dim: Number of trailing dimensions that are event dimensions (not batch).
+        static_kwargs: Keyword arguments passed through without masking (e.g., shared
+            embeddings that are not batched).
+    """
+    if static_kwargs is None:
+        static_kwargs = {}
+
+    # Construct a random mask with at least one positive element. The shape is inferred
+    # based on the first positional argument to be passed to the metric. If there are no
+    # positional argument, the first keyword argument is used.
+    if args:
+        mask_shape = args[0].shape
+    elif kwargs:
+        mask_shape = next(iter(kwargs.values())).shape
+    else:
+        raise ValueError("Cannot infer mask shape.")
+    if event_dim:
+        assert event_dim <= len(mask_shape)
+        mask_shape = mask_shape[:-event_dim]
+
+    # If there is no mask shape, exit early because we cannot mask scalars.
+    if not mask_shape:
+        return
+
+    # Create a random mask with 50-50 split of masked entries.
+    key = random.key(42)
+    size = math.prod(mask_shape)
+    mask = random.permutation(key, (jnp.arange(size) % 2 == 0)).reshape(mask_shape)
+    assert mask.any(), "Invalid empty mask."
+
+    update, compute = update_and_compute(metric, jit)
+
+    metric.reset()
+    update(
+        *(arg[mask] for arg in args),
+        **{key: value[mask] for key, value in kwargs.items()},
+        **static_kwargs,
+        mask=None,
+    )
+    expected = compute()
+
+    metric.reset()
+    update(*args, **kwargs, **static_kwargs, mask=mask)
+    actual = compute()
+
+    assert_almost_equal(actual, expected)

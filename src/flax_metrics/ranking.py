@@ -37,15 +37,23 @@ class PrecisionAtK(nnx.Metric):
         self.relevant_in_top_k = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        labels: jnp.ndarray,
+        scores: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
+    ) -> None:
         """Update the precision@k with a batch of scored items.
 
         Args:
             labels: Relevance labels, shape :code:`(..., num_items)`.
             scores: Scores for each item, same shape as labels.
+            mask: Binary mask indicating which queries to include.
         """
-        # Flatten batch dimensions to count queries
-        num_queries = scores.size // scores.shape[-1]
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1])
@@ -57,8 +65,9 @@ class PrecisionAtK(nnx.Metric):
         top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Accumulate counts (binary relevance: any value > 0 is relevant)
-        self.relevant_in_top_k[...] += (top_k_relevance > 0).sum()
-        self.num_queries[...] += num_queries
+        # Apply mask by broadcasting to (..., k)
+        self.relevant_in_top_k[...] += ((top_k_relevance > 0) * mask[..., None]).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision@k."""
@@ -96,17 +105,29 @@ class RecallAtK(nnx.Metric):
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        labels: jnp.ndarray,
+        scores: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
+    ) -> None:
         """Update the recall@k with a batch of scored items.
 
         Args:
             labels: Relevance labels, shape :code:`(..., num_items)`.
             scores: Scores for each item, same shape as labels.
+            mask: Binary mask indicating which queries to include.
         """
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         # Flatten batch dimensions to (num_queries, num_items)
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
         labels = labels.reshape(-1, original_shape[-1])
+        mask = mask.reshape(-1)
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1])
@@ -126,8 +147,8 @@ class RecallAtK(nnx.Metric):
             total_relevant > 0, relevant_in_top_k / total_relevant, 0.0
         )
 
-        self.total_recall[...] += recall_per_query.sum()
-        self.num_queries[...] += scores.shape[0]
+        self.total_recall[...] += (recall_per_query * mask).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
@@ -165,17 +186,29 @@ class MeanReciprocalRank(nnx.Metric):
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        labels: jnp.ndarray,
+        scores: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
+    ) -> None:
         """Update the mean reciprocal rank with a batch of scored items.
 
         Args:
             labels: Relevance labels, shape :code:`(..., num_items)`.
             scores: Scores for each item, same shape as labels.
+            mask: Binary mask indicating which queries to include.
         """
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         # Flatten batch dimensions
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
         labels = labels.reshape(-1, original_shape[-1])
+        mask = mask.reshape(-1)
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
@@ -196,8 +229,8 @@ class MeanReciprocalRank(nnx.Metric):
             0.0,
         )
 
-        self.total_rr[...] += reciprocal_rank.sum()
-        self.num_queries[...] += scores.shape[0]
+        self.total_rr[...] += (reciprocal_rank * mask).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean reciprocal rank."""
@@ -236,17 +269,29 @@ class MeanAveragePrecision(nnx.Metric):
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        labels: jnp.ndarray,
+        scores: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
+    ) -> None:
         """Update the mean average precision with a batch of scored items.
 
         Args:
             labels: Relevance labels, shape :code:`(..., num_items)`.
             scores: Scores for each item, same shape as labels.
+            mask: Binary mask indicating which queries to include.
         """
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         # Flatten batch dimensions
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
         labels = labels.reshape(-1, original_shape[-1])
+        mask = mask.reshape(-1)
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
@@ -273,8 +318,8 @@ class MeanAveragePrecision(nnx.Metric):
         # Handle queries with no relevant items
         ap = jnp.where(total_relevant > 0, ap_sum / total_relevant, 0.0)
 
-        self.total_ap[...] += ap.sum()
-        self.num_queries[...] += scores.shape[0]
+        self.total_ap[...] += (ap * mask).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean average precision."""
@@ -310,17 +355,29 @@ class NDCG(nnx.Metric):
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.int32))
 
-    def update(self, labels: jnp.ndarray, scores: jnp.ndarray, **_) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        labels: jnp.ndarray,
+        scores: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
+    ) -> None:
         """Update the NDCG with a batch of scored items.
 
         Args:
             labels: Relevance labels (can be graded), shape :code:`(..., num_items)`.
             scores: Scores for each item, same shape as labels.
+            mask: Binary mask indicating which queries to include.
         """
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         # Flatten all batch dimensions
         original_shape = scores.shape
         scores = scores.reshape(-1, original_shape[-1])
         labels = labels.reshape(-1, original_shape[-1])
+        mask = mask.reshape(-1)
 
         # Cap k at the number of items available
         k = min(self.k, scores.shape[-1]) if self.k is not None else scores.shape[-1]
@@ -342,8 +399,8 @@ class NDCG(nnx.Metric):
         # NDCG = DCG / IDCG (handle zero IDCG)
         ndcg = jnp.where(idcg > 0, dcg / idcg, 0.0)
 
-        self.total_ndcg[...] += ndcg.sum()
-        self.count[...] += scores.shape[0]
+        self.total_ndcg[...] += (ndcg * mask).sum()
+        self.count[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the NDCG."""
