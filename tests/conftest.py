@@ -1,10 +1,12 @@
 """Pytest configuration and fixtures for flax-metrics tests."""
 
 import functools
+import math
 from typing import Sequence
 
 import pytest
 from flax import nnx
+from jax import numpy as jnp
 from jax import random
 from numpy.testing import assert_almost_equal
 
@@ -71,15 +73,11 @@ def validate_masking(
     if not mask_shape:
         return
 
-    # Sample a non-empty mask.
+    # Create a random mask with 50-50 split of masked entries.
     key = random.key(42)
-    mask = None
-    for _ in range(10):
-        loop_key, key = random.split(key)
-        candidate = random.bernoulli(loop_key, shape=mask_shape).astype(bool)
-        if candidate.any():
-            mask = candidate
-    assert mask is not None, "Failed to sample a non-empty mask."
+    size = math.prod(mask_shape)
+    mask = random.permutation(key, (jnp.arange(size) % 2 == 0)).reshape(mask_shape)
+    assert mask.any(), "Invalid empty mask."
 
     update, compute = update_and_compute(metric, jit)
 
