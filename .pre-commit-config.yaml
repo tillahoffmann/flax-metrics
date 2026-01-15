@@ -43,7 +43,7 @@ repos:
 
       - id: doctests
         name: doctests
-        entry: bash -c 'rm -rf docs/_build && uv run sphinx-build -W -b doctest docs docs/_build'
+        entry: bash -c 'uv run python -m doctest -o ELLIPSIS README.md && rm -rf docs/_build && uv run sphinx-build -W -b doctest docs docs/_build'
         language: system
-        files: ^(src/|docs/)
+        files: ^(src/|docs/|README.md)
         pass_filenames: false

@@ -1,5 +1,5 @@
-Flax Metrics
-============
+📏 Flax Metrics
+===============
 
 Flax NNX implementation of common metrics.
 
