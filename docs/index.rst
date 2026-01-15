@@ -62,11 +62,22 @@ Ranking metrics where scores are computed as dot products between query and key 
    ~flax_metrics.dot_product_ranking.DotProductMeanAveragePrecision
    ~flax_metrics.dot_product_ranking.DotProductNDCG
 
+Base Metrics
+------------
+
+General-purpose metrics for aggregating values.
+
+.. autosummary::
+   :nosignatures:
+
+   ~flax_metrics.base.Average
+
 .. toctree::
    :maxdepth: 2
    :caption: API Reference
    :hidden:
 
+   base
    classification
    ranking
    dot_product_ranking
