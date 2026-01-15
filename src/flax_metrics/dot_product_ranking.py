@@ -75,6 +75,8 @@ class DotProductPrecisionAtK(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
         **_,
     ) -> None:
         """Update the precision@k with a batch of query/key embeddings.
@@ -84,21 +86,23 @@ class DotProductPrecisionAtK(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            mask: Binary mask indicating which queries to include.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         num_sampled = scores.shape[-1]
         effective_k = min(self.k, num_sampled)
-
-        # Flatten batch dimensions
-        num_queries = scores.size // num_sampled
 
         # Get top-k indices along last axis
         _, top_k_indices = lax.top_k(scores, effective_k)
         top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
 
         # Binary relevance: any value > 0 is relevant
-        self.relevant_in_top_k[...] += (top_k_relevance > 0).sum()
-        self.total_items_considered[...] += num_queries * self.k
+        # Apply mask by broadcasting to (..., k)
+        self.relevant_in_top_k[...] += ((top_k_relevance > 0) * mask[..., None]).sum()
+        self.total_items_considered[...] += mask.sum() * self.k
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the precision@k."""
@@ -152,6 +156,8 @@ class DotProductRecallAtK(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
         **_,
     ) -> None:
         """Update the recall@k with a batch of query/key embeddings.
@@ -161,14 +167,19 @@ class DotProductRecallAtK(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            mask: Binary mask indicating which queries to include.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         num_sampled = scores.shape[-1]
         effective_k = min(self.k, num_sampled)
 
         # Flatten batch dimensions to (num_queries, num_sampled)
         scores = scores.reshape(-1, num_sampled)
         labels = labels.reshape(-1, num_sampled)
+        mask = mask.reshape(-1)
 
         _, top_k_indices = lax.top_k(scores, effective_k)
         top_k_relevance = jnp.take_along_axis(labels, top_k_indices, axis=-1)
@@ -182,8 +193,8 @@ class DotProductRecallAtK(nnx.Metric):
             total_relevant > 0, relevant_in_top_k / total_relevant, 0.0
         )
 
-        self.total_recall[...] += recall_per_query.sum()
-        self.num_queries[...] += scores.shape[0]
+        self.total_recall[...] += (recall_per_query * mask).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the recall@k."""
@@ -235,6 +246,8 @@ class DotProductMeanReciprocalRank(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
         **_,
     ) -> None:
         """Update the mean reciprocal rank with a batch of query/key embeddings.
@@ -244,13 +257,18 @@ class DotProductMeanReciprocalRank(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            mask: Binary mask indicating which queries to include.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         num_sampled = scores.shape[-1]
 
         # Flatten batch dimensions
         scores = scores.reshape(-1, num_sampled)
         labels = labels.reshape(-1, num_sampled)
+        mask = mask.reshape(-1)
 
         k = self.k if self.k is not None else num_sampled
         effective_k = min(k, num_sampled)
@@ -268,8 +286,8 @@ class DotProductMeanReciprocalRank(nnx.Metric):
             0.0,
         )
 
-        self.total_rr[...] += reciprocal_rank.sum()
-        self.num_queries[...] += scores.shape[0]
+        self.total_rr[...] += (reciprocal_rank * mask).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean reciprocal rank."""
@@ -321,6 +339,8 @@ class DotProductMeanAveragePrecision(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
         **_,
     ) -> None:
         """Update the mean average precision with a batch of query/key embeddings.
@@ -330,13 +350,18 @@ class DotProductMeanAveragePrecision(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            mask: Binary mask indicating which queries to include.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         num_sampled = scores.shape[-1]
 
         # Flatten batch dimensions
         scores = scores.reshape(-1, num_sampled)
         labels = labels.reshape(-1, num_sampled)
+        mask = mask.reshape(-1)
 
         k = self.k if self.k is not None else num_sampled
         effective_k = min(k, num_sampled)
@@ -354,8 +379,8 @@ class DotProductMeanAveragePrecision(nnx.Metric):
 
         ap = jnp.where(total_relevant > 0, ap_sum / total_relevant, 0.0)
 
-        self.total_ap[...] += ap.sum()
-        self.num_queries[...] += scores.shape[0]
+        self.total_ap[...] += (ap * mask).sum()
+        self.num_queries[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the mean average precision."""
@@ -407,6 +432,8 @@ class DotProductNDCG(nnx.Metric):
         query: jnp.ndarray,
         keys: jnp.ndarray,
         indices: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
         **_,
     ) -> None:
         """Update the NDCG with a batch of query/key embeddings.
@@ -416,13 +443,18 @@ class DotProductNDCG(nnx.Metric):
             query: Query embeddings, shape :code:`(*batch_shape, num_features)`.
             keys: Key embeddings for all candidates, shape :code:`(num_candidates, num_features)`.
             indices: Indices into keys for each query, shape :code:`(*batch_shape, num_sampled)`.
+            mask: Binary mask indicating which queries to include.
         """
         scores = _compute_dot_product_scores(query, keys, indices)
+        if mask is None:
+            mask = jnp.ones(scores.shape[:-1])
+
         num_sampled = scores.shape[-1]
 
         # Flatten batch dimensions
         scores = scores.reshape(-1, num_sampled)
         labels = labels.reshape(-1, num_sampled)
+        mask = mask.reshape(-1)
 
         k = self.k if self.k is not None else num_sampled
         effective_k = min(k, num_sampled)
@@ -440,8 +472,8 @@ class DotProductNDCG(nnx.Metric):
 
         ndcg = jnp.where(idcg > 0, dcg / idcg, 0.0)
 
-        self.total_ndcg[...] += ndcg.sum()
-        self.count[...] += scores.shape[0]
+        self.total_ndcg[...] += (ndcg * mask).sum()
+        self.count[...] += mask.sum()
 
     def compute(self) -> jnp.ndarray:
         """Compute and return the NDCG."""

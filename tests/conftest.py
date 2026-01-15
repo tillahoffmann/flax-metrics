@@ -54,8 +54,28 @@ def update_and_compute(metric, jit):
 
 
 def validate_masking(
-    metric, args: Sequence, kwargs: dict, *, jit: bool, event_dim: int
+    metric,
+    args: Sequence,
+    kwargs: dict,
+    *,
+    jit: bool,
+    event_dim: int,
+    static_kwargs: dict | None = None,
 ) -> None:
+    """Validate that masking produces the same result as filtering inputs.
+
+    Args:
+        metric: The metric to test.
+        args: Positional arguments to pass to update (will be masked).
+        kwargs: Keyword arguments to pass to update (will be masked).
+        jit: Whether to JIT-compile the update and compute functions.
+        event_dim: Number of trailing dimensions that are event dimensions (not batch).
+        static_kwargs: Keyword arguments passed through without masking (e.g., shared
+            embeddings that are not batched).
+    """
+    if static_kwargs is None:
+        static_kwargs = {}
+
     # Construct a random mask with at least one positive element. The shape is inferred
     # based on the first positional argument to be passed to the metric. If there are no
     # positional argument, the first keyword argument is used.
@@ -85,12 +105,13 @@ def validate_masking(
     update(
         *(arg[mask] for arg in args),
         **{key: value[mask] for key, value in kwargs.items()},
+        **static_kwargs,
         mask=None,
     )
     expected = compute()
 
     metric.reset()
-    update(*args, **kwargs, mask=mask)
+    update(*args, **kwargs, **static_kwargs, mask=mask)
     actual = compute()
 
     assert_almost_equal(actual, expected)
