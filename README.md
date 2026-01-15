@@ -1,6 +1,6 @@
 # 📏 Flax Metrics [![Flax Metrics](https://github.com/tillahoffmann/flax-metrics/actions/workflows/ci.yml/badge.svg)](https://github.com/tillahoffmann/flax-metrics/actions/workflows/ci.yml) [![PyPI version](https://img.shields.io/pypi/v/flax-metrics.svg)](https://pypi.org/project/flax-metrics/) [![Documentation Status](https://readthedocs.org/projects/flax-metrics/badge/?version=latest)](https://flax-metrics.readthedocs.io/)
 
-Flax NXX implementation of common metrics.
+Flax NXX implementation of common metrics. See the [documentation](https://flax-metrics.readthedocs.io/) for a comprehensive list of available metrics.
 
 ```python
 >>> from flax_metrics import Precision, Recall
