@@ -75,6 +75,8 @@ def test_binary_metric_matches_sklearn(
         # Extreme logits for numerical stability.
         ([[100.0], [-100.0]], [[1], [0]]),
         ([[100.0, -100.0, 0.0]], [[1, 0, 0]]),
+        # Case with negative probabilities.
+        ([[2.0, -jnp.inf, 1.0, -jnp.inf, -jnp.inf]], [[1, 0, 0, 0, 0]]),
     ],
 )
 def test_multinomial_metric_matches_sklearn(

@@ -207,7 +207,13 @@ class LogProb(nnx.metrics.Average):
             # https://github.com/pyro-ppl/numpyro/blob/6a1af1f4795d9b0b179e76ab05a13cc561dcecca/numpyro/distributions/discrete.py#L699-L708.
             total = labels.sum(axis=-1)
             norm = total * logsumexp(logits, axis=-1) - gammaln(total + 1)
-            log_prob = jnp.sum(labels * logits - gammaln(labels + 1), axis=-1) - norm
+            log_prob = (
+                jnp.sum(
+                    labels * jnp.where(labels == 0, 0, logits) - gammaln(labels + 1),
+                    axis=-1,
+                )
+                - norm
+            )
         super().update(values=log_prob)
 
     def compute(self) -> jnp.ndarray:
