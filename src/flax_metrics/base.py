@@ -37,6 +37,14 @@ class BaseMetric(nnx.Metric):
         #   (b) return the metric, allowing for chaining.
         raise NotImplementedError
 
+    def reset(self) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Reset the state of the metric in-place.
+
+        Returns:
+            The metric instance.
+        """
+        raise NotImplementedError
+
 
 class Average(BaseMetric):
     """Average metric, the arithmetic mean of values.
@@ -61,10 +69,11 @@ class Average(BaseMetric):
         self.total = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state."""
         self.total = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        return self
 
     def update(
         self, values: jnp.ndarray, *_args, mask: jnp.ndarray | None = None, **_kwargs
@@ -182,11 +191,12 @@ class Welford(BaseMetric):
         self.mean = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.m2 = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state."""
         self.count = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.mean = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.m2 = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
+        return self
 
     def update(
         self, values: jnp.ndarray, *_args, mask: jnp.ndarray | None = None, **_kwargs
