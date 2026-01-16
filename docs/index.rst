@@ -54,6 +54,21 @@ Metrics for evaluating classifiers, operating on logits and binary, categorical,
    ~flax_metrics.classification.F1Score
    ~flax_metrics.classification.LogProb
 
+Regression Metrics
+^^^^^^^^^^^^^^^^^^
+
+Metrics for evaluating regression models.
+
+.. autosummary::
+   :nosignatures:
+
+   ~flax_metrics.regression.LpError
+   ~flax_metrics.regression.MeanAbsoluteError
+   ~flax_metrics.regression.MeanSquaredError
+   ~flax_metrics.regression.RootMeanSquaredError
+   ~flax_metrics.regression.MeanSquaredLogError
+   ~flax_metrics.regression.RootMeanSquaredLogError
+
 Ranking Metrics
 ^^^^^^^^^^^^^^^
 
@@ -103,4 +118,5 @@ General-purpose metrics for aggregating values.
    base
    classification
    ranking
+   regression
    dot_product_ranking

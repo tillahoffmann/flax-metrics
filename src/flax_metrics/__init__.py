@@ -14,6 +14,14 @@ from .ranking import (
     PrecisionAtK,
     RecallAtK,
 )
+from .regression import (
+    LpError,
+    MeanAbsoluteError,
+    MeanSquaredError,
+    MeanSquaredLogError,
+    RootMeanSquaredError,
+    RootMeanSquaredLogError,
+)
 
 __all__ = [
     "Accuracy",
@@ -25,13 +33,19 @@ __all__ = [
     "DotProductRecallAtK",
     "F1Score",
     "LogProb",
+    "LpError",
+    "MeanAbsoluteError",
     "MeanAveragePrecision",
     "MeanReciprocalRank",
+    "MeanSquaredError",
+    "MeanSquaredLogError",
     "NDCG",
     "Precision",
     "PrecisionAtK",
     "Recall",
     "RecallAtK",
+    "RootMeanSquaredError",
+    "RootMeanSquaredLogError",
     "Statistics",
     "Welford",
 ]
