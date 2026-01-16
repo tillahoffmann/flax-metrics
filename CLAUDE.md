@@ -14,5 +14,5 @@ All metrics inherit from `flax_metrics.base.BaseMetric` and must implement the f
 
 - You MUST use `uv run ...` to execute commands, including Git commands.
 - You MUST run `uv run pre-commit run --all-files` before attempting a commit.
-- Write basic functional tests, do not write exhaustive tests for all edge cases.
+- Write basic functional tests, do not write exhaustive tests for all edge cases. Tests must include testing the metrics under jit-compilation and ensuring that masks have the desired behavior using the `validate_masking` helper declared in `conftest.py`.
 - All methods must be jit-able, i.e., they cannot use arrays with shape that depend on runtime variables.
