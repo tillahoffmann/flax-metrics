@@ -1,6 +1,4 @@
-from flax.nnx import metrics
-
-from .base import Average
+from .base import Accuracy, Average, Statistics, Welford
 from .classification import F1Score, LogProb, Precision, Recall
 from .dot_product_ranking import (
     DotProductMeanAveragePrecision,
@@ -16,10 +14,6 @@ from .ranking import (
     PrecisionAtK,
     RecallAtK,
 )
-
-Accuracy = metrics.Accuracy
-Welford = metrics.Welford
-
 
 __all__ = [
     "Accuracy",
@@ -38,5 +32,6 @@ __all__ = [
     "PrecisionAtK",
     "Recall",
     "RecallAtK",
+    "Statistics",
     "Welford",
 ]

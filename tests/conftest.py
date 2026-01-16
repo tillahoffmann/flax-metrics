@@ -110,8 +110,10 @@ def validate_masking(
     )
     expected = compute()
 
-    metric.reset()
-    update(*args, **kwargs, **static_kwargs, mask=mask)
-    actual = compute()
+    # Verify this works for masks of different types.
+    for dtype in [bool, int, float]:
+        metric.reset()
+        update(*args, **kwargs, **static_kwargs, mask=mask.astype(dtype))
+        actual = compute()
 
-    assert_almost_equal(actual, expected)
+        assert_almost_equal(actual, expected)
