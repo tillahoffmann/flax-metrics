@@ -1,3 +1,4 @@
+import doctest
 import inspect
 
 from flax import nnx
@@ -32,3 +33,4 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
 ]
+doctest_default_flags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
