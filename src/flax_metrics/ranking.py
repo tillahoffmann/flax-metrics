@@ -39,12 +39,13 @@ class PrecisionAtK(BaseMetric):
         )
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state in-place."""
         self.relevant_in_top_k = nnx.metrics.MetricState(
             jnp.array(0, dtype=jnp.float32)
         )
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        return self
 
     def update(
         self,
@@ -111,10 +112,11 @@ class RecallAtK(BaseMetric):
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state in-place."""
         self.total_recall = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        return self
 
     def update(
         self,
@@ -194,10 +196,11 @@ class MeanReciprocalRank(BaseMetric):
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state in-place."""
         self.total_rr = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        return self
 
     def update(
         self,
@@ -279,10 +282,11 @@ class MeanAveragePrecision(BaseMetric):
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state in-place."""
         self.total_ap = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.num_queries = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        return self
 
     def update(
         self,
@@ -367,10 +371,11 @@ class NDCG(BaseMetric):
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state in-place."""
         self.total_ndcg = nnx.metrics.MetricState(jnp.array(0.0, dtype=jnp.float32))
         self.count = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
+        return self
 
     def update(
         self,

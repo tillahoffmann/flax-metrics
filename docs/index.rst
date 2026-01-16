@@ -32,6 +32,7 @@ Masking
    Array(0.5, dtype=float32)
 
    >>> metric.reset()
+   Recall(...)
    >>> metric.update(labels=labels[mask], logits=logits[mask])
    Recall(...)
    >>> metric.compute()

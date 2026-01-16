@@ -146,13 +146,14 @@ class F1Score(BaseMetric):
             jnp.array(0, dtype=jnp.float32)
         )
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the metric state in-place."""
         self.true_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
         self.actual_positives = nnx.metrics.MetricState(jnp.array(0, dtype=jnp.float32))
         self.predicted_positives = nnx.metrics.MetricState(
             jnp.array(0, dtype=jnp.float32)
         )
+        return self
 
     def update(
         self,
