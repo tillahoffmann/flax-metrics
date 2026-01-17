@@ -32,5 +32,12 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
+    "sphinx.ext.intersphinx",
 ]
+intersphinx_mapping = {
+    "flax": ("https://flax.readthedocs.io/en/latest/", None),
+    "jax": ("https://jax.readthedocs.io/en/latest/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "ir_measures": ("https://ir-measur.es/en/latest/", None),
+}
 doctest_default_flags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE

@@ -1,5 +1,5 @@
-from .base import Accuracy, Average, Statistics, Welford
-from .classification import F1Score, LogProb, Precision, Recall
+from .base import Average, Statistics, Welford
+from .classification import Accuracy, F1Score, LogProb, Precision, Recall
 from .dot_product_ranking import (
     DotProductMeanAveragePrecision,
     DotProductMeanReciprocalRank,

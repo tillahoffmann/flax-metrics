@@ -15,6 +15,9 @@ from .base import BaseMetric
 class PrecisionAtK(BaseMetric):
     """Precision@K, the fraction of top-k items that are relevant.
 
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`P <ir_measures:measures.p>`.
+
     Args:
         k: Number of top items to consider.
 
@@ -89,6 +92,9 @@ class RecallAtK(BaseMetric):
     """Recall@K, the fraction of relevant items that appear in the top-k ranked results.
 
     Computes mean recall over all queries (macro-average).
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`R <ir_measures:measures.r>`.
 
     Args:
         k: Number of top items to consider.
@@ -173,6 +179,9 @@ class MeanReciprocalRank(BaseMetric):
     """Mean Reciprocal Rank.
 
     The average of reciprocal ranks of the first relevant item for each query.
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`RR <ir_measures:measures.rr>`.
 
     Args:
         k: Number of top items to consider. If None, considers all items.
@@ -259,6 +268,9 @@ class MeanAveragePrecision(BaseMetric):
 
     The mean of average precision scores across queries, where average precision
     is the sum of precision@k * rel(k) divided by total relevant items.
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`AP <ir_measures:measures.ap>`.
 
     Args:
         k: Number of top items to consider. If None, considers all items.
@@ -348,6 +360,9 @@ class MeanAveragePrecision(BaseMetric):
 
 class NDCG(BaseMetric):
     """Normalized Discounted Cumulative Gain.
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`nDCG <ir_measures:measures.ndcg>`.
 
     Args:
         k: Number of top items to consider. If None, considers all items.

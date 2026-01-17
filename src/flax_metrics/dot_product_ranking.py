@@ -33,6 +33,9 @@ def _compute_dot_product_scores(
 class DotProductPrecisionAtK(BaseMetric):
     """Precision@K using dot product scores between query and key embeddings.
 
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`P <ir_measures:measures.p>`.
+
     .. note::
         The ranked score is computed as :code:`query @ keys[indices].T`, where
         :code:`query` are embeddings with shape :code:`(..., num_features)` and
@@ -124,6 +127,9 @@ class DotProductRecallAtK(BaseMetric):
     """Recall@K using dot product scores between query and key embeddings.
 
     Computes mean recall over all queries (macro-average).
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`R <ir_measures:measures.r>`.
 
     .. note::
         The ranked score is computed as :code:`query @ keys[indices].T`, where
@@ -217,6 +223,9 @@ class DotProductRecallAtK(BaseMetric):
 
 class DotProductMeanReciprocalRank(BaseMetric):
     """Mean Reciprocal Rank using dot product scores between query and key embeddings.
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`RR <ir_measures:measures.rr>`.
 
     .. note::
         The ranked score is computed as :code:`query @ keys[indices].T`, where
@@ -314,6 +323,9 @@ class DotProductMeanReciprocalRank(BaseMetric):
 class DotProductMeanAveragePrecision(BaseMetric):
     """Mean Average Precision using dot product scores between query and key embeddings.
 
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`AP <ir_measures:measures.ap>`.
+
     .. note::
         The ranked score is computed as :code:`query @ keys[indices].T`, where
         :code:`query` are embeddings with shape :code:`(..., num_features)` and
@@ -409,6 +421,9 @@ class DotProductMeanAveragePrecision(BaseMetric):
 
 class DotProductNDCG(BaseMetric):
     """Normalized Discounted Cumulative Gain using dot product scores between query and key embeddings.
+
+    .. seealso::
+        This metric is implemented in ir-measures as :ref:`nDCG <ir_measures:measures.ndcg>`.
 
     .. note::
         The ranked score is computed as :code:`query @ keys[indices].T`, where
