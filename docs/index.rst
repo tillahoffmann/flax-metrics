@@ -49,6 +49,7 @@ Metrics for evaluating classifiers, operating on logits and binary, categorical,
 .. autosummary::
    :nosignatures:
 
+   ~flax_metrics.classification.Accuracy
    ~flax_metrics.classification.Recall
    ~flax_metrics.classification.Precision
    ~flax_metrics.classification.F1Score
@@ -105,7 +106,6 @@ General-purpose metrics for aggregating values.
 .. autosummary::
    :nosignatures:
 
-   ~flax_metrics.base.Accuracy
    ~flax_metrics.base.Average
    ~flax_metrics.base.Statistics
    ~flax_metrics.base.Welford

@@ -16,6 +16,9 @@ from .base import Average, BaseMetric
 class Recall(Average):
     """Recall metric, the fraction of actual positives that were correctly identified.
 
+    .. seealso::
+        This metric is implemented in scikit-learn as :func:`sklearn.metrics.recall_score`.
+
     Args:
         threshold: Threshold for identifying items as positives.
 
@@ -67,6 +70,9 @@ class Recall(Average):
 
 class Precision(Average):
     """Precision metric, the fraction of identified positives that are true positives.
+
+    .. seealso::
+        This metric is implemented in scikit-learn as :func:`sklearn.metrics.precision_score`.
 
     Args:
         threshold: Threshold for identifying items as positives.
@@ -120,6 +126,9 @@ class Precision(Average):
 
 class F1Score(BaseMetric):
     """F1 score, the harmonic mean of precision and recall.
+
+    .. seealso::
+        This metric is implemented in scikit-learn as :func:`sklearn.metrics.f1_score`.
 
     Args:
         threshold: Threshold for identifying items as positives.
@@ -186,6 +195,85 @@ class F1Score(BaseMetric):
             * self.true_positives[...]
             / (self.predicted_positives[...] + self.actual_positives[...])
         )
+
+
+class Accuracy(Average):
+    """Accuracy metric, the fraction of correct predictions.
+
+    For multi-class classification, the logits are argmax-ed before comparing to labels.
+    For binary classification, pass a ``threshold`` to determine positive predictions.
+
+    .. seealso::
+        This metric is implemented in scikit-learn as :func:`sklearn.metrics.accuracy_score`.
+
+    Args:
+        threshold: For binary classification, logits >= threshold are considered
+            positive. If None (default), multi-class classification is assumed.
+
+    Example:
+
+        Multi-class classification:
+
+        >>> from jax import numpy as jnp
+        >>> from flax_metrics import Accuracy
+        >>>
+        >>> logits = jnp.array([[0.1, 0.9], [0.8, 0.2], [0.3, 0.7]])
+        >>> labels = jnp.array([1, 1, 1])
+        >>> metric = Accuracy()
+        >>> metric.update(logits=logits, labels=labels)
+        Accuracy(...)
+        >>> metric.compute()
+        Array(0.666..., dtype=float32)
+
+        Binary classification:
+
+        >>> logits = jnp.array([0.6, 0.4, 0.8, 0.3])
+        >>> labels = jnp.array([1, 1, 1, 0])
+        >>> metric = Accuracy(threshold=0.5)
+        >>> metric.update(logits=logits, labels=labels)
+        Accuracy(...)
+        >>> metric.compute()
+        Array(0.75, dtype=float32)
+    """
+
+    def __init__(self, threshold: float | None = None) -> None:
+        super().__init__()
+        self.threshold = threshold
+
+    def update(
+        self,
+        logits: jnp.ndarray,
+        labels: jnp.ndarray,
+        *,
+        mask: jnp.ndarray | None = None,
+        **_,
+    ) -> Self:
+        """Update the metric with a batch of predictions.
+
+        Args:
+            logits: Predicted logits. For multi-class, shape ``(..., num_classes)``.
+                For binary, shape ``(...,)``.
+            labels: Ground truth integer labels with shape ``(...,)``.
+            mask: Binary mask indicating which elements to include.
+        """
+        if self.threshold is not None:
+            # Binary classification
+            predictions = logits >= self.threshold
+            correct = predictions == (labels > 0)
+        else:
+            # Multi-class classification
+            predictions = logits.argmax(axis=-1)
+            correct = predictions == labels
+
+        if mask is None:
+            mask = jnp.ones_like(correct)
+        self.total[...] += (correct * mask).sum()
+        self.count[...] += mask.sum()
+        return self
+
+    def compute(self) -> jnp.ndarray:
+        """Compute and return the accuracy."""
+        return super().compute()
 
 
 class LogProb(Average):

@@ -85,6 +85,10 @@ class LpError(BaseMetric):
 class MeanAbsoluteError(LpError):
     """Mean absolute error (MAE).
 
+    .. seealso::
+        This metric is implemented in scikit-learn as
+        :func:`sklearn.metrics.mean_absolute_error`.
+
     Example:
 
         >>> from jax import numpy as jnp
@@ -105,6 +109,10 @@ class MeanAbsoluteError(LpError):
 
 class MeanSquaredError(LpError):
     """Mean squared error (MSE).
+
+    .. seealso::
+        This metric is implemented in scikit-learn as
+        :func:`sklearn.metrics.mean_squared_error`.
 
     Example:
 
@@ -127,6 +135,10 @@ class MeanSquaredError(LpError):
 class RootMeanSquaredError(LpError):
     """Root mean squared error (RMSE).
 
+    .. seealso::
+        This metric is implemented in scikit-learn as
+        :func:`sklearn.metrics.root_mean_squared_error`.
+
     Example:
 
         >>> from jax import numpy as jnp
@@ -147,6 +159,10 @@ class RootMeanSquaredError(LpError):
 
 class MeanSquaredLogError(LpError):
     """Mean squared logarithmic error (MSLE).
+
+    .. seealso::
+        This metric is implemented in scikit-learn as
+        :func:`sklearn.metrics.mean_squared_log_error`.
 
     Example:
 
